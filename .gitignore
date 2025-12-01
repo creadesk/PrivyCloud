@@ -1,0 +1,43 @@
+# Byte‑code
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+ENV/
+env/
+env.bak/
+venv/
+ENV.bak/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS‑Specific
+.DS_Store
+Thumbs.db
+
+# Django
+*.sqlite3
+*.db
+db.sqlite3
+*.log
+*.orig
+
+# Celery Beat schedule
+celerybeat-schedule/
+
+# Media files
+media/
+logs/
+logs/*.log
+
+# Secret keys
+*.env

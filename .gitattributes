@@ -1,0 +1,7 @@
+# Git will always use UTF‑8 for these files
+*.py text eol=lf
+*.txt text eol=lf
+*.md  text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js  text eol=lf
