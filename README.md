@@ -12,35 +12,45 @@
 ## Quick‑Start
 
 # 1. Klone das Repository
+```bash
 git clone https://github.com/creadesk/PrivyCloud.git
-
 cd prj_PrivyCloud
+```
 
 # 2. Virtuelle Umgebung erstellen
+```bash
 python -m venv .venv
 
 source .venv/bin/activate   # Linux/macOS 
 
 .\.venv\Scripts\activate  # Windows
+```
 
 # 3. Abhängigkeiten installieren
+```bash
 pip install -r requirements.txt
+```
 
 # 4. Datenbank migrieren
+```bash
 python manage.py migrate
+```
 
 # 5. Superuser anlegen
+```bash
 python manage.py createsuperuser
+```
 
 # 6. Server+Celery starten
+```bash
 python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
-
+```
 
 
 ## Konfiguration
 
-### .env - Datei notwendig:
-
+### .env-Datei anlegen:
+```dotenv
 SECRET_KEY='django-insecure-<lange_zufällige_zeichenkette>'
 
 DEBUG=True
@@ -68,6 +78,8 @@ REDIS_SERVER_IP=<ip_redis_server>
 REDIS_SERVER_PORT=<port_redis_server>
 
 REDIS_SERVER_DB=<db_nummer> /z.B. 0
+```
+
 
 ### Datenank-Import Startkonfiguration
 
@@ -77,8 +89,8 @@ REDIS_SERVER_DB=<db_nummer> /z.B. 0
 - 
     sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
 
-
-    paas_appdefinition:
+```sql
+    --paas_appdefinition:
         
         INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('1', 'it-tools', 'it-tools', 'ghcr.io/corentinth/it-tools:latest', 'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.', '1', '80', '1', '1', '80', '0');
         INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('2', 'uptime-kuma', 'uptime-kuma', 'louislam/uptime-kuma:latest', 'Ein einfaches und nützliches Monitoring‑Tool.', '1', '3001', '1', '1', '3001', '0');
@@ -88,7 +100,7 @@ REDIS_SERVER_DB=<db_nummer> /z.B. 0
         INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('6', 'owncloud', 'owncloud', 'owncloud/server:latest', 'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin', '1', '8080', '1', '1', '8080', '0');    
 
     
-    paas_appenvvarperapp:
+    --paas_appenvvarperapp:
 
         INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('1', 'ADDR', '<onion_address>', '4', '0', '0');
         INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('2', 'ADDR', '<onion_address>', '5', '0', '0');
@@ -97,7 +109,7 @@ REDIS_SERVER_DB=<db_nummer> /z.B. 0
         INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('5', 'OWNCLOUD_TRUSTED_DOMAINS', '<onion_address>', '6', '0', '0');    
 
     
-    paas_appvolumeperapp:
+    --paas_appvolumeperapp:
 
         INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('1', 'simplex/smp/config', '/etc/opt/simplex:z', '4');
         INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('2', 'simplex/smp/logs', '/var/opt/simplex:z', '4');
@@ -106,14 +118,15 @@ REDIS_SERVER_DB=<db_nummer> /z.B. 0
         INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('5', 'simplex/xftp/files', '/srv/xftp:z', '5');
 
 
-    paas_configpatch:
+    --paas_configpatch:
 
         INSERT INTO "main"."paas_configpatch" ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id") VALUES ('1', 'simplex/smp/config/smp-server.ini', '^\(https\|cert\|key\):', 'comment', '', '4', '1');
 
-    paas_remotehost:
+    --paas_remotehost:
 
         INSERT INTO "main"."paas_remotehost" ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path") VALUES ('1', '<dein_zielserver_hostname>', '<deine_zielserver_ip>', 'deploy', '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key');
- 
+
+```
 
 
 ## Lizenz
