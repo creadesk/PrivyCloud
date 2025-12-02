@@ -41,15 +41,7 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-# 6. Server+Celery starten
-```bash
-python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
-```
-
-
-## Konfiguration
-
-### .env-Datei anlegen:
+# 6. .env-Datei anlegen:
 ```dotenv
 SECRET_KEY='django-insecure-<lange_zufällige_zeichenkette>'
 
@@ -78,6 +70,11 @@ REDIS_SERVER_IP=<ip_redis_server>
 REDIS_SERVER_PORT=<port_redis_server>
 
 REDIS_SERVER_DB=<db_nummer> /z.B. 0
+```
+
+# 7. Server+Celery starten
+```bash
+python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
 ```
 
 
