@@ -1,0 +1,66 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Erfolg{% endblock %}
+{% block stylesheet %}{% static 'paas/style_deploy_success.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Erfolg{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+
+  <h1>Deployment gestartet!</h1>
+
+  <div>
+      Deine App <strong>{{ provision.app.display_name }}</strong> wird jetzt auf <strong>{{ provision.onion_address }}</strong> gestartet.<br>
+      Es kann ein paar Minuten dauern, bis die Adressen im Tor-Netzwerk erreichbar wird.
+  </div>
+
+  <dl>
+      <dt>App</dt>
+      <dd>{{ provision.app.display_name }}</dd>
+
+      <dt>Beschreibung</dt>
+      <dd>{{ provision.app.description }}</dd>
+
+       <!-- Web-Adresse, wenn vorhanden -->
+      <dt>Adresse(Web)</dt>
+      {% if provision.app.app_port_intern_web != 1 %}
+        <dd><a href="{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}">{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}</a></dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <!-- API-Adresse, wenn vorhanden -->
+      <dt>Adresse(API)</dt>
+      {% if provision.app.app_port_intern_api != 1 %}
+          <dd>{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_api }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <dt>Startzeit</dt>
+      <dd>{{ provision.started_at|date:"DATETIME_FORMAT" }}</dd>
+
+      <dt>Verfallszeit</dt>
+      <dd>{{ provision.expires_at|date:"DATETIME_FORMAT" }}</dd>
+
+      <dt>Status</dt>
+      <dd>{{ provision.get_status_display|default:provision.status }}</dd>
+  </dl>
+
+    <form method="POST" action="{% url 'paas_my_apps' %}">
+        {% csrf_token %}
+        <button class="btn_list" type="submit">Zurück zu meinen Apps</button>
+    </form>
+    <form method="POST" action="{% url 'paas_select_app' %}">
+        {% csrf_token %}
+        <button class="btn_list" type="submit">Noch eine App bereitstellen</button>
+    </form>
+</div>
+{% endblock %}

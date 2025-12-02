@@ -1,0 +1,132 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Deploy{% endblock %}
+{% block stylesheet %}{% static 'paas/style_deploy_app.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Deploy{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+    {% if error %}
+      <div>{{ error }}</div>
+    {% endif %}
+
+    <!--<form method="post" novalidate>-->
+    <form method="post" action="{% url 'paas_deploy_app' %}">
+      {% csrf_token %}
+
+        <!-- App- und Laufzeitauswahl: -->
+        {% if not readonly %}
+            <!-- ---------- App Auswahl ---------- -->
+            <div>
+                {{ form.app.label_tag }}<br>
+                {{ form.app }}
+                {% if form.app.errors %}
+                    <div>{{ form.app.errors }}</div>
+                {% endif %}
+            </div>
+
+            <!-- ---------- Laufzeit ---------- -->
+            <div>
+                {{ form.duration.label_tag }}<br>
+                {{ form.duration }}
+                {% if form.duration.errors %}
+                    <div>{{ form.duration.errors }}</div>
+                {% endif %}
+            </div>
+
+            {% if request.user.is_authenticated and request.user.is_superuser %}
+                <!-- ---------- Zielhost, nur für superuser ---------- -->
+                <div>
+                    {{ form.target_host.label_tag }}<br>
+                    {{ form.target_host }}
+                    {% if form.target_host.errors %}
+                        <div>{{ form.target_host.errors }}</div>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+        {% endif %}
+
+        <!-- Docker run spezifikationen: -->
+        {% if readonly %}
+            <div class="form-group">
+                <label for="app_selected">App-ausgewählt</label>
+                <input id="app_selected"
+                       type="text"
+                       readonly
+                       value="{{ app_selected }}"
+                       name="app_selected"
+                       class="readonly-input">
+            </div>
+
+            <div class="form-group">
+                <label for="duration_selected">Dauer in Stunden</label>
+                <input id="duration_selected"
+                       type="text"
+                       readonly
+                       value="{{ duration_selected }}"
+                       name="duration_selected"
+                       class="readonly-input">
+            </div>
+
+            {% if request.user.is_authenticated and request.user.is_superuser %}
+                <div class="form-group">
+                    <label for="target_host_selected">Zielhost</label>
+                    <input id="target_host_selected"
+                           type="text"
+                           readonly
+                           value="{{ target_host_selected }}"
+                           name="target_host_selected"
+                           class="readonly-input">
+                </div>
+            {% endif %}
+
+            <!-- ---------- Beschreibung ---------- -->
+            {% if app_description %}
+            <div class="form-group">
+                <label for="app_description">Beschreibung</label>
+                <span id="app_description">{{ app_description|linebreaks }}</span>
+            </div>
+            {% endif %}
+
+        {% endif %}
+
+        <!-- ---------- Umgebungsvariablen ---------- -->
+        {% if app_env_vars %}
+            <!--<h4>Umgebungsvariablen</h4>-->
+
+            {% for env in app_env_vars %}
+              <div class="env-var">
+                {% if env.editable %}
+                  <label for="env_{{ env.key|escape }}">{{ env.key }}:</label>
+                  <input type="text"
+                         name="env_{{ env.key|escape }}"
+                         id="env_{{ env.key|escape }}"
+                         value="{{ env.value|escape }}"
+                         placeholder="(Default: {{ env.value|escape }})">
+                {% else %}
+                  <input type="hidden"
+                         name="env_{{ env.key|escape }}"
+                         value="{{ env.value|escape }}">
+                {% endif %}
+              </div>
+            {% endfor %}
+        {% endif %}
+        <input type="hidden" name="doIT" value="doIT" />
+        <button class="btn_list go" type="submit">Bereitstellen</button>
+    </form>
+
+    <form method="POST" action="{% url 'paas_my_apps' %}">
+        {% csrf_token %}
+        <button class="btn_list" type="submit">Zurück zu meinen Apps</button>
+    </form>
+
+</div>
+{% endblock %}

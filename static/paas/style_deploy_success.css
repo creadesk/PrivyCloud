@@ -1,0 +1,104 @@
+
+/* ------------------------------------------------------------------
+   1. Überschrift
+------------------------------------------------------------------ */
+h1 {
+    font-size: 2rem;                /* Standardgröße */
+    margin: 1.5rem 0;               /* Abstand nach oben und unten */
+    text-align: center;             /* Zentrieren */
+    color: #ffcc80;                 /* Sanftes Orange für mehr Kontrast */
+}
+
+/* ------------------------------------------------------------------
+   2. Definition‑Liste (dt / dd)
+------------------------------------------------------------------ */
+dl {
+    display: grid;                                 /* Grid‑Layout */
+    grid-template-columns: 1fr 2fr;                /* 1 / 2‑Spalten */
+    gap: 0.5rem 1rem;                              /* Abstand zwischen Zeilen/Spalten */
+    margin-bottom: 1.5rem;                         /* Abstand zum nächsten Element */
+}
+
+dt {
+    font-weight: bold;                             /* Fettdruck */
+    position: relative;
+}
+
+dt::after {                                         /* Automatisches Doppelpunkt‑Symbol */
+    content: ":";
+    margin-left: 0.2rem;
+}
+
+dd {
+    margin: 0;                                      /* Kein zusätzlicher Margin */
+    word-wrap: break-word;                          /* Für lange URLs */
+}
+
+/* ------------------------------------------------------------------
+   3. Form‑Buttons (Pagination)
+------------------------------------------------------------------ */
+form.pagination {
+    margin-top: 1rem;                               /* Abstand zum vorherigen Block */
+    text-align: center;                             /* Buttons zentriert */
+}
+
+form.pagination button {
+    padding: 0.6rem 1.2rem;                         /* Innenabstand */
+    font-size: 1rem;                                /* Lesbare Schriftgröße */
+    border-radius: 5px;                             /* Abgerundete Ecken */
+    border: none;                                   /* Keine Rahmen */
+    background-color: #f39c12;                      /* Orange */
+    color: white;                                   /* Weißer Text */
+    cursor: pointer;                                /* Handcursor */
+    transition: background-color 0.3s ease;          /* Farbwechsel beim Hover */
+}
+
+form.pagination button:hover {
+    background-color: #e67e22;                      /* Dunkleres Orange beim Hover */
+}
+
+/* ------------------------------------------------------------------
+   4. Responsives Verhalten
+------------------------------------------------------------------ */
+@media (max-width: 600px) {
+    h1 {                                            /* Kleinere Schrift auf Mobil */
+        font-size: 1.5rem;
+    }
+
+    dl {                                            /* Auf einer Spalte bei kleinen Bildschirmen */
+        grid-template-columns: 1fr;
+    }
+
+    dt, dd {                                        /* Kleinere Schrift für dt/dd */
+        font-size: 0.9rem;
+    }
+
+    form.pagination button {                        /* Buttons voll auf der Breite */
+        width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+.btn_list{
+    margin-top:1rem;
+}
+
+/* ---------------------------- Buttons ------------------------ */
+button[type="submit"],
+.pagination button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: #f39c12;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    text-align: center;
+}
+
+button[type="submit"]:hover,
+.pagination button:hover {
+    background-color: #e67e22;
+}

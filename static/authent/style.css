@@ -1,0 +1,80 @@
+/* Responsive Login Form Styles */
+
+body {
+  font-family: sans-serif;
+  margin: 0;
+  /*padding: 0;*/
+  /*background-color: #f4f4f4;*/
+}
+
+.form-control {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: white;
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.btn-primary {
+  background-color: black;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+/* Responsive Design - Media Queries */
+@media (max-width: 768px) {
+  /* Adjustments for smaller screens (tablets and phones) */
+  .form-control {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  label {
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Adjustments for even smaller screens (phones) */
+  .form-control {
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    padding: 8px 12px;
+  }
+}
+
+.error {
+    color: red;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}

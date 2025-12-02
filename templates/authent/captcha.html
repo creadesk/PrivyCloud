@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - Captcha{% endblock %}
+{% block stylesheet %}{% static 'authent/style.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - Captcha{% endblock %}
+{% block content %}
+
+{% if error_message %}
+    <p>{{ error_message }}</p>
+{% endif %}
+
+<form method="POST" class="my-4">
+  {% csrf_token %}
+  {{ captcha_form.as_p }}
+  <button type="submit" class="btn btn-primary">Senden</button>
+</form>
+
+{% endblock content %}

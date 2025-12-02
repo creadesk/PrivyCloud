@@ -1,0 +1,14 @@
+{% extends "admin/base.html" %}
+
+{% load static %}
+
+{# 1. Extra CSS einbinden #}
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" type="text/css" href="{% static 'admin/custom.css' %}">
+{% endblock %}
+
+{# 2. Header‑Text ändern #}
+{% block branding %}
+  <h1 id="site-name"><a href="{% url 'admin:index' %}">PrivyCloud-Administration</a></h1>
+{% endblock %}

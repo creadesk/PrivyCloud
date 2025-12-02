@@ -1,0 +1,102 @@
+* {
+    /*margin: 0;*/
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background-color: #2e2e2e; /* Dunkelgrau */
+    background-image: linear-gradient(45deg, rgba(255, 165, 0, 0.5), transparent); /* Orange Schimmer */
+    color: white; /* Weißer Text für guten Kontrast */
+}
+
+.gallery {
+    /*display: grid;*/
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    max-width: 1200px;
+    width: 100%;
+}
+
+.gallery-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s ease-in-out;
+}
+
+.gallery-item:hover img {
+    transform: scale(1.1);
+}
+
+.nav-panel {
+    width: 100%; /* Nimmt die gesamte Breite des Bildschirms ein */
+    position: fixed; /* Fixiert das Panel auf der Seite */
+    left: 0; /* Positioniert es ganz links */
+    right: 0; /* Positioniert es ganz rechts */
+    z-index: 10; /* Stellt sicher, dass es über anderen Inhalten schwebt */
+    background-color: rgba(0, 0, 0, 0.7); /* Optional: Transparenter Hintergrund */
+    padding: 10px 0; /* Optional: Padding für oben und unten */
+    display: flex;
+    justify-content: center; /* Zentriert die Paginierungsbuttons */
+}
+
+/* Option 1: nav-panel ganz oben */
+.nav-panel.top {
+    top: 0; /* Positioniert es ganz oben */
+}
+
+/* Option 2: nav-panel ganz unten */
+.nav-panel.bottom {
+    bottom: 0; /* Positioniert es ganz unten */
+}
+
+/* Optional: Paginierungs-Buttons Styling */
+.pagination {
+    display: ruby;
+    align-items: center;
+    justify-content: center;
+    gap: 15px; /* Abstand zwischen den Schaltflächen */
+}
+
+.pagination button {
+    padding: 10px 20px;
+    background-color: #f39c12; /* Orange für die Schaltflächen */
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.pagination button:hover {
+    background-color: #e67e22; /* Dunkleres Orange beim Hover */
+}
+
+/* Verhindert das Überlappen des Inhalts */
+body {
+    padding-top: 60px; /* Wenn das Panel oben ist, fügt es oben Platz hinzu */
+    padding-bottom: 60px; /* Wenn das Panel unten ist, fügt es unten Platz hinzu */
+}
+
+
+
+.pagination button:hover {
+    background-color: #e67e22; /* Dunkleres Orange beim Hover */
+}
+
+a {
+    color: whitesmoke;
+}
+

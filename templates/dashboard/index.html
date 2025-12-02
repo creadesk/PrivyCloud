@@ -1,0 +1,32 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - Dashboard{% endblock %}
+{% block stylesheet %}{% static 'dashboard/style.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - Apps{% endblock %}
+
+{% block app_buttons %}
+
+<form method="POST" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Logout</button>
+    </div>
+</form>
+
+{% if request.user.is_authenticated and request.user.is_superuser %}
+    <button type="submit"><a href="{{ STRING_TO_ADMIN_PATH }}" target="_blank">Admin</a></button>
+{% endif %}
+
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="panel">
+        <form method="POST" action="{% url 'paas_my_apps' %}">
+            {% csrf_token %}
+            <button>App Bereitstellung</button>
+        </form>
+        <div class="description">Platform-as-a-Service (PaaS).</div>
+    </div>
+</div>
+{% endblock %}

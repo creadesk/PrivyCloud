@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - Login{% endblock %}
+{% block stylesheet %}{% static 'authent/style.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - Login{% endblock %}
+{% block content %}
+
+{% if error_message %}
+    <p>{{ error_message }}</p>
+{% endif %}
+
+<form method="POST">
+    {% csrf_token %}
+    <div>
+        <label for="username">Benutzername:</label>
+        <input name="username" id="username" type="text" class="form-control" required>
+    </div>
+    <div>
+        <label for="password">Passwort:</label>
+        <input name="password" id="password" type="password" class="form-control" required>
+    </div>
+    <div>
+        <input class="btn btn-primary mt-3" type="submit" value="Anmelden">
+    </div>
+</form>
+<br>
+<div>
+    <a href="{% url 'register' %}">Registrieren</a>
+</div>
+
+{% endblock content %}

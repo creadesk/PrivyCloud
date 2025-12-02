@@ -1,0 +1,131 @@
+/* -------------------------------------------------------------
+   Style für /paas/my_apps.html
+   ------------------------------------------------------------- */
+
+/* --- Allgemeines -------------------------------------------- */
+body {
+  /* Wir wollen die vorhandenen Body‑Styles aus base.css nicht überschreiben */
+}
+
+/* --- Container für die Tabelle --------------------------------*/
+table-container {
+  overflow-x: auto;            /* horizontales Scrollen bei zu breiten Tabellen */
+  margin-top: 1.5rem;
+}
+
+/* --- Tabelle -------------------------------------------------*/
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.4);   /* leicht transparentes Schwarz */
+  color: #f0f0f0;
+}
+
+table th,
+table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  vertical-align: middle;
+}
+
+table th {
+  background: #3a3a3a;
+  font-weight: bold;
+  text-align: left;
+}
+
+table tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+table tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* --- Status‑Farben ------------------------------------------ */
+status-running  span { color: #27ae60; } /* grün */
+status-pending  span { color: #f1c40f; } /* gelb */
+status-deleting span { color: #e67e22; } /* orange */
+status-finished span { color: #95a5a6; } /* grau */
+status-error    span { color: #c0392b; } /* rot */
+
+status-running  span,
+status-pending  span,
+status-deleting span,
+status-finished span,
+status-error    span {
+  font-weight: bold;
+}
+
+/* --- Buttons in der Tabelle --------------------------------- */
+table button {
+  padding: 6px 12px;
+  background: #e67e22;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color .2s;
+}
+
+table button:hover {
+  background: #d35400;
+}
+
+/* Formulare innerhalb einer Zelle – inline‑Anzeige */
+table form {
+  display: inline;
+}
+
+/* --- Pagination‑Buttons (oben/unten) ------------------------ */
+.pagination button {
+  padding: 8px 16px;
+  background: #f39c12;
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color .3s;
+}
+
+.pagination button:hover {
+  background: #e67e22;
+}
+
+/* --- Hinweistext bei keinen Apps --------------------------- */
+.no-apps {
+  text-align: center;
+  margin-top: 2rem;
+  color: #bbb;
+}
+
+/* --- Responsives Verhalten --------------------------------- */
+/* Bei < 768 px – kleinere Schrift, weniger Abstand */
+@media (max-width: 768px) {
+  table th,
+  table td {
+    padding: 10px 8px;
+  }
+  pagination button {
+    padding: 6px 12px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Bei < 480 px – nur die wichtigsten Spalten anzeigen */
+@media (max-width: 480px) {
+  table th:nth-child(5),
+  table th:nth-child(6),
+  table td:nth-child(5),
+  table td:nth-child(6) {
+    display: none;   /* Status & Port verbergen */
+  }
+
+  table th,
+  table td {
+    padding: 8px 6px;
+  }
+}
+
+
+

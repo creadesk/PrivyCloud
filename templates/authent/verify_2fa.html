@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - Registrieren-OTP{% endblock %}
+{% block stylesheet %}{% static 'authent/style.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - Registrieren-OTP{% endblock %}
+
+{% block content %}
+  <h2>Verifiziere deinen 2FA-Code</h2>
+  <p>Gib den 6-stelligen OTP-Code aus deiner Authenticator-App ein:</p>
+
+  <form method="POST">
+    {% csrf_token %}
+    <label for="otp_code">OTP-Code:</label>
+    <input type="text" name="otp_code" id="otp_code" required>
+    <button class="btn btn-primary mt-3" type="submit">Bestätigen</button>
+  </form>
+
+  {% if error_message %}
+      <p>{{ error_message }}</p>
+  {% endif %}
+
+{% endblock %}

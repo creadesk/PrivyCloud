@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - Registrieren-OTP{% endblock %}
+{% block stylesheet %}{% static 'authent/style.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - Registrieren-OTP{% endblock %}
+
+{% block content %}
+  <h2>Zwei-Faktor-Authentifizierung (2FA) aktivieren.</h2>
+  <p class="success">{{ success_message }}</p>
+  <p>Scannen Sie diesen QR-Code mit Ihrer Authenticator-App, um die 2FA einzurichten:</p>
+  <img src="{{ qr_code_url }}" alt="QR code for TOTP">
+  <br>
+  <a href="{{otp_config_url}}">{{otp_config_url}}</a>
+  <p>Nach dem Scannen des QR-Codes geben Sie den 6-stelligen Code von Ihrer App in dem nächsten Schritt ein:</p>
+  <a href="{% url 'verify_2fa' %}">Weiter zur Verifizierung</a>
+
+{% endblock %}

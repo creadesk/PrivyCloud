@@ -1,0 +1,91 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-MyApps{% endblock %}
+{% block stylesheet %}{% static 'paas/style_my_apps.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-MyApps{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+    <div>
+        <form method="POST" action="{% url 'paas_select_app' %}">
+            {% csrf_token %}
+            <div class="pagination">
+                <button type="submit">Neue App bereitstellen</button>
+            </div>
+        </form>
+    </div>
+    {% if provisions %}
+      <table>
+          <thead>
+              <tr>
+                  <th>App</th>
+                  <th>Web</th>
+                  <th>API</th>
+                  <th>Startzeit(UTC)</th>
+                  <th>Verfallszeit(UTC)</th>
+                  <th>Status</th>
+                  <th>Aktionen</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% for p in provisions %}
+                  <tr>
+                      <td>{{ p.app.display_name }}</td>
+
+                      <!-- Web-Adresse, wenn vorhanden -->
+                      {% if p.app.app_port_intern_web != 1 %}
+                        <td><a href="{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Link</a></td>
+                      {% else %}
+                          <td>X</td>
+                      {% endif %}
+
+                      <!-- API-Adresse, wenn vorhanden -->
+                      {% if p.app.app_port_intern_api != 1 %}
+                          <td><a href="{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Link</a></td>
+                      {% else %}
+                          <td>X</td>
+                      {% endif %}
+
+                      <td>{{ p.started_at|date:"DATETIME_FORMAT" }}</td>
+                      <td>{{ p.expires_at|date:"DATETIME_FORMAT" }}</td>
+                      <td>
+                          {% if p.status == 'running' %}
+                              <span>läuft</span>
+                          {% elif p.status == 'pending' %}
+                              <span>wird gestartet</span>
+                          {% elif p.status == 'deleting' %}
+                              <span>löschen</span>
+                          {% elif p.status == 'finished' %}
+                              <span>abgeschlossen</span>
+                          {% elif p.status == 'deleted' %}
+                              <span>gelöscht</span>
+                          {% else %}
+                              <span>fehlerhaft</span>
+                          {% endif %}
+                      </td>
+                      <td>
+                          {% if p.status == 'running' or p.status == 'deleting' %}
+                              <form method="post" action="{% url 'paas_delete_app' p.pk %}" style="display:inline;">
+                                  {% csrf_token %}
+                                  <button type="submit">App löschen</button>
+                              </form>
+                          {% else %}
+                              <span>–</span>
+                          {% endif %}
+                      </td>
+                  </tr>
+              {% endfor %}
+          </tbody>
+      </table>
+  {% else %}
+      <p class="no-apps">Du hast noch keine Apps bereitgestellt.</p>
+  {% endif %}
+</div>
+{% endblock %}

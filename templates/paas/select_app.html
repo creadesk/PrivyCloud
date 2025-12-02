@@ -1,0 +1,62 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Select{% endblock %}
+{% block stylesheet %}{% static 'paas/style_deploy_app.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Select{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+    {% if error %}
+      <div>{{ error }}</div>
+    {% endif %}
+
+    <!--<form method="post" novalidate>-->
+    <form method="POST" action="{% url 'paas_deploy_app' %}">
+      {% csrf_token %}
+
+        <!-- ---------- App Auswahl ---------- -->
+        <div>
+            {{ form.app.label_tag }}<br>
+            {{ form.app }}
+            {% if form.app.errors %}
+                <div>{{ form.app.errors }}</div>
+            {% endif %}
+        </div>
+
+        <!-- ---------- Laufzeit ---------- -->
+        <div>
+            {{ form.duration.label_tag }}<br>
+            {{ form.duration }}
+            {% if form.duration.errors %}
+                <div>{{ form.duration.errors }}</div>
+            {% endif %}
+        </div>
+
+        {% if request.user.is_authenticated and request.user.is_superuser %}
+            <!-- ---------- Zielhost, nur für superuser ---------- -->
+            <div>
+                {{ form.target_host.label_tag }}<br>
+                {{ form.target_host }}
+                {% if form.target_host.errors %}
+                    <div>{{ form.target_host.errors }}</div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <button class="btn_list forward" type="submit">Weiter</button>
+    </form>
+
+    <form method="POST" action="{% url 'paas_my_apps' %}">
+        {% csrf_token %}
+        <button class="btn_list" type="submit">Zurück zu meinen Apps</button>
+    </form>
+
+</div>
+{% endblock %}
