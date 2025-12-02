@@ -124,52 +124,78 @@ MIT
 ## Remotehost vorbereiten
 
 #### Update & Docker installieren
+```bash
 sudo apt-get update
+
 sudo apt-get install -y docker.io   # oder: docker-ce für die offizielle Docker‑Repo
+```
 
 #### Neuen Benutzer "deploy" erstellen
+```bash
 sudo adduser --disabled-password --gecos "" deploy
 sudo passwd deploy
+```
 
 #### Benutzer zur Docker Gruppe hinzufügen
+```bash
 sudo usermod -aG docker deploy
+```
 
 #### Auf dem Celery‑Host (z.B. dein lokaler Entwicklungsrechner)
+```bash
 ssh-keygen -t ed25519 -C "celery-deploy-key" -f ~/.ssh/deploy_key
-
+```
 Du bekommst ~/.ssh/deploy_key (privat) und ~/.ssh/deploy_key.pub (öffentlich)
 
 #### Rechte auf PrivateKey
+```bash
 chmod 600 ~/.ssh/deploy_key
+```
 
 #### Public Key auf Zielserver kopieren
+```bash
 ssh-copy-id -i ~/.ssh/deploy_key.pub deploy@<ZIEL_IP>
+```
 
 #### ssh Konfiguration auf Zielserver
+```bash
 sudo nano /etc/ssh/sshd_config
 -->Folgende Zeilen sicherstellen (oder hinzufügen):
 PubkeyAuthentication yes
 PasswordAuthentication no        # optional: Passwort‑Login komplett deaktivieren
 PermitRootLogin no                # Root‑Login sperren
 UsePAM yes
+```
 
 #### Neustart ssh Server auf Zielserver
+```bash
 sudo systemctl restart ssh.service
+```
 
 #### Ggf. Firewall freischalten auf Zielserver
+```bash
 sudo ufw allow OpenSSH
 sudo ufw enable
+```
 
 #### Testlogin vom lokalen System
+```bash
 ssh -i ~/.ssh/deploy_key deploy@<ZIEL_IP>
+```
 
 #### Sicherstelen, dass `deploy` nur `sudo docker …` ausführen kann, keine anderen Root‑Kommandos
+```bash
 sudo nano /etc/sudoers.d/99_deploy_docker
 deploy ALL=(root) NOPASSWD: /usr/bin/docker
+```
 
 Um systemd-Units nach einem *Boot* ohne User‑Login automatisch zu starten, muss der User **lingering** aktiviert haben:
+```bash
 sudo loginctl enable-linger deploy
+```
 
 #### Sicherstellen, dass Python/Celery den Private Key lesen kann
+```bash
 sudo chown <app_user>:<app_user> ~/.ssh/deploy_key
 sudo chmod 600 ~/.ssh/deploy_key
+```
