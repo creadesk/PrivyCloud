@@ -228,5 +228,7 @@ sudo chmod 600 ~/.ssh/deploy_key
 sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
 
 ```sql
-UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key'; 
+UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key' WHERE "id"=1; 
 ```
+
+Über die Admin-Oberfläche können weitere Zielserver hinzugefügt werden.
