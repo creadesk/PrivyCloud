@@ -8,6 +8,19 @@
 
 - Docker‑basierte App‑Deployments welche als TOR-Hidden-Service veröffentlicht werden
 
+## Voraussetzungen
+
+# 1. REDIS 
+- muss bereits installiert bzw. verfügbar sein
+- falls nicht wäre die einfachste Möglichkeit REDIS per Docker bereitzustellen
+- REDIS Server-Only:
+```bash
+docker run -d --name redis-stack-server --restart unless-stopped -p 6379:6379 redis/redis-stack-server:latest
+```
+- REDIS Server + REDIS-Insight(mit Weboberfläche)
+```bash
+docker run -d --name redis-stack --restart unless-stopped -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+```
 
 ## Quick‑Start
 
@@ -69,7 +82,7 @@ REDIS_SERVER_IP=<ip_redis_server>
 
 REDIS_SERVER_PORT=<port_redis_server>
 
-REDIS_SERVER_DB=<db_nummer> /z.B. 0
+REDIS_SERVER_DB=<db_nummer>
 ```
 
 # 7. Server+Celery starten
