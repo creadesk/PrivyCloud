@@ -32,7 +32,7 @@ db.sqlite3
 *.orig
 
 # Celery Beat schedule
-celerybeat-schedule/
+/celerybeat-schedule
 
 # Media files
 media/
