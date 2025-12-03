@@ -21,7 +21,7 @@
 
 ## Voraussetzungen
 
-# 1. Redis 
+### 1. Redis 
 - muss bereits installiert bzw. verfügbar sein
 - falls nicht wäre die einfachste Möglichkeit REDIS per Docker bereitzustellen
 - REDIS Server-Only:
@@ -36,13 +36,13 @@
 
 ## Einrichtung
 
-# 1. Klone das Repository
+### 1. Klone das Repository
 ```bash
 git clone https://github.com/creadesk/PrivyCloud.git
 cd prj_PrivyCloud
 ```
 
-# 2. Virtuelle Umgebung erstellen
+### 2. Virtuelle Umgebung erstellen
 ```bash
 python -m venv .venv
 
@@ -51,22 +51,22 @@ source .venv/bin/activate   # Linux/macOS
 .\.venv\Scripts\activate  # Windows
 ```
 
-# 3. Abhängigkeiten installieren
+### 3. Abhängigkeiten installieren
 ```bash
 pip install -r requirements.txt
 ```
 
-# 4. Datenbank migrieren
+### 4. Datenbank migrieren
 ```bash
 python manage.py migrate
 ```
 
-# 5. Superuser anlegen
+### 5. Superuser anlegen
 ```bash
 python manage.py createsuperuser
 ```
 
-# 6. .env-Datei anlegen:
+### 6. .env-Datei anlegen:
 ```dotenv
 SECRET_KEY='django-insecure-<lange_zufällige_zeichenkette>'
 DEBUG=True
@@ -86,15 +86,15 @@ REDIS_SERVER_PORT=<port_redis_server>
 REDIS_SERVER_DB=<db_nummer>
 ```
 
-# 7. Server+Celery starten
+### 7. Server+Celery starten
 ```bash
 python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
 ```
 
 
-### Datenank-Import Startkonfiguration
+## Datenank-Import Startkonfiguration
 
-- benötigte Datensätze in sqlite db einfügen
+- mindestens benötigte Datensätze in sqlite db einfügen
 - 
     sudo apt install sqlite3
 - 
