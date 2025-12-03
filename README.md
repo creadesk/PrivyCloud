@@ -9,7 +9,7 @@
 - [Features](#features)
 - [Voraussetzungen](#voraussetzungen)
   - [Redis](#redis)
-- [Quick‑Start](#quick-start)
+- [Einrichtung](#einrichtung)
 - [Remotehost vorbereiten](#remotehost-vorbereiten)
 - [Web‑Zugriff](#web-zugriff)
 - [Lizenz](#lizenz)
@@ -33,7 +33,7 @@
     ```
     - Web-Zugriff: http://<dein_redis_host>:8001 
 
-## Quick‑Start
+## Einrichtung
 
 # 1. Klone das Repository
 ```bash
