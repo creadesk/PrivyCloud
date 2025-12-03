@@ -175,7 +175,7 @@ Du bekommst ~/.ssh/deploy_key (privat) und ~/.ssh/deploy_key.pub (öffentlich)
 chmod 600 ~/.ssh/deploy_key
 ```
 
-#### Public Key auf Zielserver kopieren
+#### Public Key von lokalem System auf den Zielserver kopieren
 ```bash
 ssh-copy-id -i ~/.ssh/deploy_key.pub deploy@<ZIEL_IP>
 ```
@@ -217,8 +217,16 @@ Um systemd-Units nach einem *Boot* ohne User‑Login automatisch zu starten, mus
 sudo loginctl enable-linger deploy
 ```
 
-#### Sicherstellen, dass Python/Celery den Private Key lesen kann
+#### Auf dem lokalen System: Sicherstellen, dass Python/Celery den Private Key lesen kann
 ```bash
 sudo chown <app_user>:<app_user> ~/.ssh/deploy_key
 sudo chmod 600 ~/.ssh/deploy_key
+```
+
+#### Hostname und IP in der Datenbanktabelle "paas_remotehost" setzen
+
+sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
+
+```sql
+UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key'; 
 ```
