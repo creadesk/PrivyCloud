@@ -12,6 +12,7 @@
 - [Einrichtung](#einrichtung)
 - [Remotehost vorbereiten](#remotehost-vorbereiten)
 - [Web‑Zugriff](#web-zugriff)
+- [Dienste einrichten](#dienste-einrichten)
 - [Lizenz](#lizenz)
 
 ## Features
@@ -241,6 +242,72 @@ Flower/Celery:
 http://127.0.0.1:5555
 
 
+## Dienste einrichten
+Falls die Anwendung permanent laufen soll. Also z.B. für Testsysteme.
+
+### Celery
+```bash
+sudo nano /etc/systemd/system/celery_privycld.service
+```
+Inhalt:
+```systemd
+[Unit]
+Description=Celery Worker for PrivyCloud
+After=network.target
+
+[Service]
+Type=simple
+User=<app_user>
+Group=<app_group>
+Environment="DJANGO_SETTINGS_MODULE=core.settings"
+WorkingDirectory=<pfad_zum_projekt>
+ExecStart=<pfad_zum_projekt>/venv/bin/celery -A core worker --beat --loglevel debug --concurrency 2 --without-gossip --without>
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+Dienst aktivieren und starten:
+```bash
+sudo systemctl enable celery_privycld.service
+sudo systemctl daemon-reload
+sudo systemctl restart celery_privycld.service
+```
+Prüfung logs:
+```bash
+sudo journalctl -xe -u celery_privycld.service
+```
+
+### Gunicorn
+```bash
+sudo nano /etc/systemd/system/gunicorn_privycld.service
+```
+Inhalt:
+```systemd
+[Unit]
+Description=gunicorn daemon for PrivyCloud
+After=network.target celery_privycld.service
+
+[Service]
+User=<app_user>
+Group=<app_group>
+WorkingDirectory=<pfad_zum_projekt>
+ExecStart=<pfad_zum_projekt>/venv/bin/gunicorn --timeout 550 --workers 3 --bind 0.0.0.0:8000 core.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
+```
+Dienst aktivieren und starten:
+```bash
+sudo systemctl enable gunicorn_privycld.service
+sudo systemctl daemon-reload
+sudo systemctl restart gunicorn_privycld.service
+```
+Prüfung logs:
+```bash
+sudo journalctl -xe -u gunicorn_privycld.service
+```
 
 ## Lizenz
 
