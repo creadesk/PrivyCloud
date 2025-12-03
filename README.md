@@ -4,13 +4,23 @@
 > Container‑Apps zu deployen, zu skalieren und zu verwalten.
 > Die bereitgestellten Apps werden als TOR-Hidden-Service angeboten. 
 
+# Inhaltsverzeichnis
+
+- [Features](#features)
+- [Voraussetzungen](#voraussetzungen)
+  - [Redis](#redis)
+- [Quick‑Start](#quick-start)
+- [Remotehost vorbereiten](#remotehost-vorbereiten)
+- [Web‑Zugriff](#web-zugriff)
+- [Lizenz](#lizenz)
+
 ## Features
 
 - Docker‑basierte App‑Deployments welche als TOR-Hidden-Service veröffentlicht werden
 
 ## Voraussetzungen
 
-# 1. REDIS 
+# 1. Redis 
 - muss bereits installiert bzw. verfügbar sein
 - falls nicht wäre die einfachste Möglichkeit REDIS per Docker bereitzustellen
 - REDIS Server-Only:
