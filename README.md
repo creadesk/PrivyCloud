@@ -139,10 +139,6 @@ python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
 ```
 
 
-## Lizenz
-
-MIT
-
 
 ## Remotehost vorbereiten
 
@@ -232,3 +228,9 @@ UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_addr
 ```
 
 Über die Admin-Oberfläche können weitere Zielserver hinzugefügt werden.
+
+
+
+## Lizenz
+
+MIT
