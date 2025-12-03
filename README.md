@@ -14,13 +14,14 @@
 - muss bereits installiert bzw. verfügbar sein
 - falls nicht wäre die einfachste Möglichkeit REDIS per Docker bereitzustellen
 - REDIS Server-Only:
-```bash
-docker run -d --name redis-stack-server --restart unless-stopped -p 6379:6379 redis/redis-stack-server:latest
-```
+    ```bash
+    docker run -d --name redis-stack-server --restart unless-stopped -p 6379:6379 redis/redis-stack-server:latest
+    ```
 - REDIS Server + REDIS-Insight(mit Weboberfläche)
-```bash
-docker run -d --name redis-stack --restart unless-stopped -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
-```
+    ```bash
+    docker run -d --name redis-stack --restart unless-stopped -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+    ```
+    - Web-Zugriff: http://<dein_redis_host>:8001 
 
 ## Quick‑Start
 
@@ -57,31 +58,20 @@ python manage.py createsuperuser
 # 6. .env-Datei anlegen:
 ```dotenv
 SECRET_KEY='django-insecure-<lange_zufällige_zeichenkette>'
-
 DEBUG=True
-
 ALLOWED_HOSTS=127.0.0.1,localhost
-
+STRING_TO_ADMIN_PAGE=<beliebige_individuelle_zeichenkette>/
 
 #DB_ENGINE=django.db.backends.postgresql
-
 DB_ENGINE=django.db.backends.sqlite3
-
 DB_NAME=db.sqlite3
-
 DB_USER=
-
 DB_PASSWORD=
-
 DB_HOST=
-
 DB_PORT=
 
-
 REDIS_SERVER_IP=<ip_redis_server>
-
 REDIS_SERVER_PORT=<port_redis_server>
-
 REDIS_SERVER_DB=<db_nummer>
 ```
 
@@ -228,6 +218,17 @@ UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_addr
 ```
 
 Über die Admin-Oberfläche können weitere Zielserver hinzugefügt werden.
+
+
+## Web-Zugriff
+User: 
+http://127.0.0.1:8000
+
+Admin (siehe env "STRING_TO_ADMIN_PAGE"):
+http://127.0.0.1:8000/<wie_in_env_datei_gesetzt>
+
+Flower/Celery:
+http://127.0.0.1:5555
 
 
 
