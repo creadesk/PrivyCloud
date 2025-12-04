@@ -1,0 +1,33 @@
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtualenv
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDEs & editors
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Media – optional: bind‑mount in Docker‑run
+media/
+
+# SQLite database – optional: persistent volume or bind‑mount
+db.sqlite3
+
+# Git
+.git/
+.gitignore
+
+# Docker specific
+Dockerfile
+.dockerignore
