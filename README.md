@@ -255,7 +255,7 @@ User=<app_user>
 Group=<app_group>
 Environment="DJANGO_SETTINGS_MODULE=core.settings"
 WorkingDirectory=<pfad_zum_projekt>
-ExecStart=<pfad_zum_projekt>/venv/bin/celery -A core worker --beat --loglevel debug --concurrency 2 --without-gossip --without>
+ExecStart=<pfad_zum_projekt>/venv/bin/celery -A core worker --beat --loglevel debug --concurrency 2 --without-gossip --without-mingle --logfile <pfad_zum_projekt>/logs/celery.log
 Restart=always
 RestartSec=5
 
