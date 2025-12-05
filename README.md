@@ -188,7 +188,7 @@ sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
 UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key' WHERE "id"=1; 
 ```
 
-Über die Admin-Oberfläche können über die Rubrik "PAAS" --> "Remote Hosts" weitere Zielserver hinzugefügt werden.
+Die Pflege der Zielserver kann auch über die Admin-Oberfläche --> Rubrik "PAAS" --> "Remote Hosts" durchgeführt werden.
 
 
 ## Web-Zugriff
