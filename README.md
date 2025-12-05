@@ -93,7 +93,7 @@ python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
 ```
 
 
-## Datenank-Import Startkonfiguration
+## Datenbank-Import Startkonfiguration
 - mindestens benötigte Datensätze in sqlite db einfügen
 ```bash
 python manage.py db_start_config
