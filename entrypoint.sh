@@ -36,10 +36,13 @@ else
   echo "DJANGO_SUPERUSER_USERNAME and/or DJANGO_SUPERUSER_PASSWORD not set – skipping superuser creation."
 fi
 
-# 4. Optional: Celery‑Worker starten (wenn du diesen Container als Worker nutzt)
+# 4. Startkonfiguration der Datenbank (siehe "paas/management/commands/db_start_config.py")
+python manage.py db_start_config
+
+# 5. Optional: Celery‑Worker starten (wenn du diesen Container als Worker nutzt)
 if [ "$1" = "celery" ]; then
     exec celery -A core.celery worker --beat --loglevel info --concurrency 2 --without-gossip --without-mingle --logfile /app/logs/celery.log
 fi
 
-# 5. Starte die Anwendung (Gunicorn)
+# 6. Starte die Anwendung (Gunicorn)
 exec "$@"

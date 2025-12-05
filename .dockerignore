@@ -20,9 +20,10 @@ logs/
 
 # Media – optional: bind‑mount in Docker‑run
 media/
+zdockerdata/
 
 # SQLite database – optional: persistent volume or bind‑mount
-db.sqlite3
+db/db.sqlite3
 
 # Git
 .git/

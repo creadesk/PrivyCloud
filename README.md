@@ -93,44 +93,9 @@ python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
 
 
 ## Datenank-Import Startkonfiguration
-
 - mindestens benötigte Datensätze in sqlite db einfügen
 ```bash
-sudo apt install sqlite3
-sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
-```
-- paas_appdefinition:
-```sql 
-INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('1', 'it-tools', 'it-tools', 'ghcr.io/corentinth/it-tools:latest', 'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.', '1', '80', '1', '1', '80', '0');
-INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('2', 'uptime-kuma', 'uptime-kuma', 'louislam/uptime-kuma:latest', 'Ein einfaches und nützliches Monitoring‑Tool.', '1', '3001', '1', '1', '3001', '0');
-INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('3', 'redis', 'redis', 'redis/redis-stack:latest', 'In-Memory‑Datenbank für schnelle Lese‑/Schreibzugriffe. Initiales Passwort: mypassword', '1', '8001', '6379', '6379', '8001', '0');
-INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('4', 'simplex-smp', 'simplex-smp', 'simplexchat/smp-server:latest', 'Ein SimpleX Messaging Protocol-Server.', '1', '1', '5223', '5223', '1', '1');
-INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('5', 'simplex-xftp', 'simplex-xftp', 'simplexchat/xftp-server:latest', 'SimpleX XFTP Server ist ein Dateiübertragungsprotokoll zum Schutz von Metadaten, das auf den Prinzipien des SimpleX Messaging Protocol (SMP) basiert.', '1', '1', '443', '443', '1', '1');
-INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user") VALUES ('6', 'owncloud', 'owncloud', 'owncloud/server:latest', 'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin', '1', '8080', '1', '1', '8080', '0');    
-```
-- paas_appenvvarperapp:
-```sql 
-INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('1', 'ADDR', '<onion_address>', '4', '0', '0');
-INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('2', 'ADDR', '<onion_address>', '5', '0', '0');
-INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('3', 'QUOTA', '1gb', '5', '0', '0');
-INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('4', 'REDIS_ARGS', '"--requirepass mypassword"', '3', '0', '0');
-INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "app_id", "optional", "editable") VALUES ('5', 'OWNCLOUD_TRUSTED_DOMAINS', '<onion_address>', '6', '0', '0');    
-```
--paas_appvolumeperapp:
-```sql
-INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('1', 'simplex/smp/config', '/etc/opt/simplex:z', '4');
-INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('2', 'simplex/smp/logs', '/var/opt/simplex:z', '4');
-INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('3', 'simplex/xftp/config', '/etc/opt/simplex-xftp:z', '5');
-INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('4', 'simplex/xftp/logs', '/var/opt/simplex-xftp:z', '5');
-INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('5', 'simplex/xftp/files', '/srv/xftp:z', '5');
-```
--paas_configpatch:
-```sql
-INSERT INTO "main"."paas_configpatch" ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id") VALUES ('1', 'simplex/smp/config/smp-server.ini', '^\(https\|cert\|key\):', 'comment', '', '4', '1');
-```
--paas_remotehost:
-```sql
-INSERT INTO "main"."paas_remotehost" ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path") VALUES ('1', '<dein_zielserver_hostname>', '<deine_zielserver_ip>', 'deploy', '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key');
+python manage.py db_start_config
 ```
 
 

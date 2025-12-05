@@ -27,7 +27,7 @@ Thumbs.db
 # Django
 *.sqlite3
 *.db
-db.sqlite3
+db/db.sqlite3
 *.log
 *.orig
 
@@ -35,9 +35,9 @@ db.sqlite3
 /celerybeat-schedule
 
 # Media files
-media/
-logs/
-logs/*.log
+media/*
+logs/*
 
 # Secret keys
 *.env
+keys/*
