@@ -37,7 +37,6 @@ COPY . .
 # Optional: Permissions – keep everything readable
 RUN chmod -R u+rwX /app
 
-# Collect static files and run migrations on container start
 # We use an entrypoint script so that every `docker run` triggers it
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
@@ -45,6 +44,7 @@ ENTRYPOINT ["entrypoint.sh"]
 
 # Expose the port Django will listen on
 EXPOSE 8000
+# Expose the port Flower will listen on
 EXPOSE 5555
 
 # Default command (overridden by entrypoint)

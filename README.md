@@ -301,6 +301,15 @@ docker run -d \
   -v "$(pwd)/zdockerdata/keys:/app/keys" \
   -e DJANGO_SUPERUSER_USERNAME=<geheim> \
   -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
+  -e SECRET_KEY=django-insecure-<geheime_lange_zeichenkette> \
+  -e STRING_TO_ADMIN_PAGE=<geheime_lange_zeichenkette> \
+  -e DEBUG=true \
+  -e ALLOWED_HOSTS=127.0.0.1,localhost \
+  -e DB_ENGINE=django.db.backends.sqlite3 \
+  -e DB_NAME=db/db.sqlite3 \
+  -e REDIS_SERVER_IP=<ip_redis_server> \
+  -e REDIS_SERVER_PORT=<port_redis_server> \
+  -e REDIS_SERVER_DB=<db_redis_server> \
   prj_privycloud:latest
 ```
 ### Keys für Zielserver bereitstellen
