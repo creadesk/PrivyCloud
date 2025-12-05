@@ -32,3 +32,5 @@ db/db.sqlite3
 # Docker specific
 Dockerfile
 .dockerignore
+
+/celerybeat-schedule

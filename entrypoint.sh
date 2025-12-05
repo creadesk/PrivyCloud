@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -e
+set -e pipefail
+trap "kill 0" SIGTERM SIGINT
 
 # 1. Optional: Datenbank‑URL aus Umgebungs‑Variablen setzen (default SQLite)
 : "${DJANGO_SETTINGS_MODULE:=core.settings}"
@@ -39,10 +40,21 @@ fi
 # 4. Startkonfiguration der Datenbank (siehe "paas/management/commands/db_start_config.py")
 python manage.py db_start_config
 
-# 5. Optional: Celery‑Worker starten (wenn du diesen Container als Worker nutzt)
-if [ "$1" = "celery" ]; then
-    exec celery -A core.celery worker --beat --loglevel info --concurrency 2 --without-gossip --without-mingle --logfile /app/logs/celery.log
-fi
+echo "Starte Celery Worker"
+celery -A core.celery worker \
+       --beat \
+       --loglevel info \
+       --concurrency 2 \
+       --without-gossip --without-mingle \
+       --logfile /app/logs/celery.log &
 
-# 6. Starte die Anwendung (Gunicorn)
-exec "$@"
+echo "Starte Flower"
+celery -A core.celery flower \
+       --port=5555 \
+       --loglevel info \
+       --logfile /app/logs/flower.log &
+
+echo "Starte Gunicorn (foreground)"
+exec gunicorn core.wsgi:application \
+      --bind 0.0.0.0:8000 \
+      --workers 3

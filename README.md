@@ -75,7 +75,7 @@ STRING_TO_ADMIN_PAGE=<beliebige_individuelle_zeichenkette>/
 
 #DB_ENGINE=django.db.backends.postgresql
 DB_ENGINE=django.db.backends.sqlite3
-DB_NAME=db.sqlite3
+DB_NAME=db/db.sqlite3
 DB_USER=
 DB_PASSWORD=
 DB_HOST=
@@ -187,7 +187,7 @@ sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
 UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key' WHERE "id"=1; 
 ```
 
-Über die Admin-Oberfläche können weitere Zielserver hinzugefügt werden.
+Über die Admin-Oberfläche können über die Rubrik "PAAS" --> "Remote Hosts" weitere Zielserver hinzugefügt werden.
 
 
 ## Web-Zugriff
@@ -267,6 +267,50 @@ Prüfung logs:
 ```bash
 sudo journalctl -xe -u gunicorn_privycld.service
 ```
+
+
+## Docker
+### Image lokal erstellen 
+```bash
+git clone https://github.com/creadesk/PrivyCloud.git
+cd prj_PrivyCloud
+docker build -t prj_privycloud .
+```
+### (Alternativ)Image herunterladen
+```bash
+....
+```
+### Verzeichnisse anlegen
+```bash
+mkdir -p ./zdockerdata/media
+mkdir -p ./zdockerdata/logs
+mkdir -p ./zdockerdata/db
+mkdir -p ./zdockerdata/keys
+```
+### Container starten
+```bash
+docker run -d \
+  --name privycloud \
+  --user "$(id -u):$(id -g)" \
+  -p 8000:8000 \
+  -p 5555:5555 \
+  -v "$(pwd)/zdockerdata/media:/app/media" \
+  -v "$(pwd)/zdockerdata/logs:/app/logs" \
+  -v "$(pwd)/zdockerdata/db:/app/db" \
+  -v "$(pwd)/zdockerdata/keys:/app/keys" \
+  -e DJANGO_SUPERUSER_USERNAME=<geheim> \
+  -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
+  prj_privycloud:latest
+```
+### Keys für Zielserver bereitstellen
+```bash
+cp ~/.ssh/deploy_key ./keys/
+cp ~/.ssh/deploy_key.pub ./keys/
+```
+### Keys für Zielserver verknüpfen
+- am Admin Panel anmelden
+- Rubrik "PAAS" --> Tabelle "Remote Hosts" --> Datensatz anlegen
+- am entsprechenden Datensatz in das Feld "Ssh key path" folgendes eintragen: "/app/keys/deploy_key" 
 
 ## Lizenz
 

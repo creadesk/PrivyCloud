@@ -45,6 +45,7 @@ ENTRYPOINT ["entrypoint.sh"]
 
 # Expose the port Django will listen on
 EXPOSE 8000
+EXPOSE 5555
 
 # Default command (overridden by entrypoint)
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
