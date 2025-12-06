@@ -1,0 +1,39 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-AppDelete{% endblock %}
+{% block stylesheet %}{% static 'paas/style_my_apps.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-AppDelete{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+
+    <h2>Bestätigung zum Löschen</h2>
+
+    <p>Die App <strong>{{ provision.name }}</strong> wirkich löschen?</p>
+    <p>Alle Daten werden gelöscht.</p>
+
+    <form method="post" action="{% url 'paas_delete_app' provision.pk %}">
+        {% csrf_token %}
+        <!-- Bestätigungs‑Flag -->
+        <input type="hidden" name="confirmed" value="1">
+        <div class="pagination">
+            <button class="btn_list go" type="submit">Ja, löschen</button>
+        </div>
+    </form>
+
+    <form method="POST" action="{% url 'paas_my_apps' %}">
+        {% csrf_token %}
+        <div class="pagination">
+            <button class="btn_list" type="submit">Abbrechen</button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

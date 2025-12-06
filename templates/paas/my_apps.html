@@ -74,6 +74,7 @@
                           {% if p.status == 'running' or p.status == 'deleting' %}
                               <form method="post" action="{% url 'paas_delete_app' p.pk %}" style="display:inline;">
                                   {% csrf_token %}
+                                  <input type="hidden" name="first_step" value="1">
                                   <button type="submit">App löschen</button>
                               </form>
                           {% else %}

@@ -127,5 +127,17 @@ table form {
   }
 }
 
+.btn_list{
+    margin-top:1rem;
+}
+
+.forward{
+    color:#0c710c;
+}
+
+.go{
+    color:#730505 !important;
+}
+
 
 

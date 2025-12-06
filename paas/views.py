@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.urls import reverse
@@ -257,21 +257,51 @@ def my_apps(request):
 @login_required
 @rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
 def delete_app(request, pk):
-  provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
-  provision = ProvisionedApp.objects.get(pk=pk, user=request.user)
-  if provision.status != 'running' and provision.status != 'deleting':
-      return render(request, 'paas/my_apps.html', {
-          'provisions': provisions,
-          "PLATFORM_NAME": PLATFORM_NAME,
-      })
+    """
+    2‑Schritt‑Delete: Erstes POST → Bestätigungsseite, zweites POST → Löschen
+    """
+    provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
+    provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
 
-  provision.status = 'deleting'
-  provision.save()
+    # App darf nur laufen oder gelöscht werden
+    if provision.status not in ('running', 'deleting'):
+        # Nicht‑zulässige App – einfach weiterleiten
+        return render(request, 'paas/my_apps.html', {
+            'provisions': provisions,
+            "PLATFORM_NAME": PLATFORM_NAME,
+        })
 
-  #synchron
-  delete_container_task(provision.id)
+    # ---------- 1. Schritt – Bestätigungsseite ----------
+    if request.method == 'POST' and 'confirmed' not in request.POST:
+        # Der erste POST (ohne Flag) bedeutet: Zeige Bestätigungsseite
+        return render(request, 'paas/confirm_delete_app.html',{
+            'provision': provision,
+            "PLATFORM_NAME": PLATFORM_NAME,
+        })
 
-  return render(request, 'paas/my_apps.html', {
-      'provisions': provisions,
-      "PLATFORM_NAME": PLATFORM_NAME,
-  })
+    # ---------- 2. Schritt – Löschen ----------
+    if request.method == 'POST' and 'confirmed' in request.POST:
+        # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
+        if provision.status not in ('running', 'deleting'):
+            return render(request, 'paas/my_apps.html', {
+                'provisions': provisions,
+                "PLATFORM_NAME": PLATFORM_NAME,
+            })
+
+        provision.status = 'deleting'
+        provision.save()
+
+        # Synchron‑Delete
+        delete_container_task(provision.id)
+
+        # Nach erfolgreichem Löschen Weiterleitung
+        return render(request, 'paas/my_apps.html', {
+            'provisions': provisions,
+            "PLATFORM_NAME": PLATFORM_NAME,
+        })
+
+    # Für jede andere Methode (z.B. GET) leiten wir einfach weiter
+    return render(request, 'paas/my_apps.html', {
+        'provisions': provisions,
+        "PLATFORM_NAME": PLATFORM_NAME,
+    })
