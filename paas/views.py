@@ -1,34 +1,54 @@
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from datetime import timedelta
 from django.utils import timezone
 from django.urls import reverse
-from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, UserAppLimit
+
+from django.utils.dateparse import parse_duration
+from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp
 from .forms import DeployForm, DeployFormAdmin
 from .tasks import deploy_app_task, delete_container_task
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
 
 
-def _get_user_max_apps(user):
+def _check_user_limits(user, requested_duration, request):
+    # Skip check für superuser
+    if request.user.is_superuser:
+        return True
     """
-    Liefert die maximale Anzahl an gleichzeitig laufenden Apps für
-    ``user``.  Superusers erhalten praktisch keine Begrenzung.
-    Für normale Benutzer gilt:
-    - Falls ein expliziter Limit‑Eintrag existiert → dessen Wert
-    - Sonst → ``settings.PAAS_MAX_FREE_APPS_PER_USER``
+    Prüft:
+    1. Max. gleichzeitige Apps
+    2. Max. gesamt Stunden pro Tag
+    3. Max. Dauer pro einzelne Bereitstellung
     """
-    # Superuser → keine Begrenzung (oder ein sehr hoher Standardwert)
-    if getattr(user, "is_superuser", False):
-        # Option 1: Ein „praktisch unbegrenzter“ Integer
-        return settings.PAAS_MAX_SUPERUSER_APPS
+    # 1) gleichzeitige Apps
+    active_apps = ProvisionedApp.objects.filter(user=user, status='active')
+    if active_apps.count() >= user.deployment_limit.max_concurrent_apps:
+        return False
 
-        # Option 2: Explizit ``None`` und die Logik, die die Rückgabe nutzt,
-        #           müsste ``None`` als “unlimitiert” behandeln.
+    # 2) gesamt Stunden pro Tag (heute)
+    today = timezone.now().date()
+    today_total = 0
+    for p in active_apps:
+        if p.expires_at and p.expires_at.date() == today:
+            today_total += (p.expires_at - timezone.now()).total_seconds() / 3600
 
-    # Für reguläre Nutzer
-    limit = UserAppLimit.objects.filter(user=user).first()
-    return limit.max_apps if limit else settings.PAAS_MAX_FREE_APPS_PER_USER
+    # add requested
+    if requested_duration is not None:
+        today_total += requested_duration.total_seconds() / 3600
+
+    if today_total > user.deployment_limit.max_total_hours_per_day:
+        return False
+
+    # 3) max Dauer pro Bereitstellung
+    max_dur = user.deployment_limit.max_duration
+    if max_dur and requested_duration and requested_duration > max_dur:
+        return False
+
+    return True
 
 
 @login_required
@@ -43,25 +63,16 @@ def select_app(request):
 
       if form.is_valid():
 
+          # 1) Daten aus dem Formular holen
           app_def = form.cleaned_data['app']
-          duration = int(form.cleaned_data['duration'])
+          duration = form.cleaned_data['duration']  # timedelta oder None
 
-          # max x laufende Apps prüfen
-
-          # aktuell laufende apps pro user
-          active = ProvisionedApp.objects.filter(
-              user=request.user,
-              status='running'
-          ).count()
-
-          # limit holen
-          max_allowed = _get_user_max_apps(request.user)
-
-          # limit prüfen
-          if active >= max_allowed:
+          # 2) Limits prüfen
+          if not _check_user_limits(request.user, duration, request):
+              # Rückmeldung an den User
               return render(request, 'paas/select_app.html', {
+                  'error': _('Ihre Limits wurden überschritten.'),
                   'form': form,
-                  'error': f'Du hast bereits {max_allowed} Apps laufen.'
               })
 
           # Neue Form‑Instanz mit der ausgewählten App initialisieren
@@ -97,39 +108,49 @@ def deploy_app(request):
         do_it = 'doIT' in request.POST  # Hidden‑Field
         form = FormCls(request.POST)
 
-        if not do_it and form.is_valid():
-            """Verarbeitet ein gültiges Formular und führt das Deploy noch nicht aus."""
-            app_def = form.cleaned_data.get('app')
-            duration = int(form.cleaned_data.get('duration'))
-            target_host = form.cleaned_data.get('target_host')
+        if not do_it:
+            if form.is_valid():
+                """Verarbeitet ein gültiges Formular und führt das Deploy noch nicht aus."""
+                app_def = form.cleaned_data.get('app')
+                duration = form.cleaned_data['duration']  # timedelta oder None
+                target_host = form.cleaned_data.get('target_host')
 
-            # Nur die Vorschau anzeigen – kein Deploy
-            context = {
-                'app_selected': app_def,
-                'duration_selected': duration,
-                'target_host_selected': target_host,
-                'app_description': app_def.description,
-                'readonly': True,
-                'app_env_vars': AppEnvVarPerApp.objects.filter(app=app_def, editable=True) if app_def else [], # nur editierbare Umgeb.Variablen an den Client schicken
+                # Nur die Vorschau anzeigen – kein Deploy
+                context = {
+                    'app_selected': app_def,
+                    'duration_selected': duration,
+                    'target_host_selected': target_host,
+                    'app_description': app_def.description,
+                    'readonly': True,
+                    'app_env_vars': AppEnvVarPerApp.objects.filter(app=app_def, editable=True) if app_def else [], # nur editierbare Umgeb.Variablen an den Client schicken
+                    "PLATFORM_NAME": PLATFORM_NAME,
+                }
+                return render(request, 'paas/deploy_app.html', context)
+            else:
+                # Form had errors; they'll be displayed in the template
+                pass
+            return render(request, 'paas/select_app.html', {
+                'form': form,
                 "PLATFORM_NAME": PLATFORM_NAME,
-            }
-            return render(request, 'paas/deploy_app.html', context)
+            })
         else:
-            return _handle_deploy(request)
+            return _handle_deploy(request,form)
 
 
 
 # ----------------------------------------------------------------------
 # Helper‑Funktionen für deploy_app
 # ----------------------------------------------------------------------
-def _handle_deploy(request):
+def _handle_deploy(request, form):
 
     app_selected = request.POST.get('app_selected')
+    print(app_selected)
     try:
         app_def = AppDefinition.objects.get(name=app_selected)
     except AppDefinition.DoesNotExist:
         app_def = None  # oder andere Fehlerbehandlung
-    duration = int(request.POST.get('duration_selected', 1))
+
+    duration = request.POST.get('duration_selected', 1)
 
     target_host_selected = request.POST.get('target_host_selected')
 
@@ -160,24 +181,28 @@ def _handle_deploy(request):
             request, error=' '.join(errors), app_def=app_def
         )
 
-    # 3) Max. laufende Apps prüfen
-    active = ProvisionedApp.objects.filter(
-        user=request.user, status='running'
-    ).count()
-    max_allowed = _get_user_max_apps(request.user)
 
-    if active >= max_allowed:
+    # 3) Zielhost wählen (hier einfaches Round‑Robin für normale user + Wahlfreiheit für superuser)
+    host = target_host if request.user.is_superuser else RemoteHost.objects.first()
+
+    # 4) Limits prüfen
+    if not _check_user_limits(request.user, duration, request):
+        # Rückmeldung an den User
         return render_deploy(
-            request,
-            error=f'Du hast bereits {max_allowed} Apps laufen.',
-            app_def=app_def,
+            request, error=' '.join("Ihre Limits wurden überschritten."), app_def=app_def
         )
 
-    # 4) Zielhost wählen (hier einfaches Round‑Robin für normale user + Wahlfreiheit für superuser)
-    host = target_host if request.user.is_superuser else RemoteHost.objects.first()
-    expires_at = timezone.now() + timezone.timedelta(hours=duration)
+    # 5) expires_at berechnen
+    expires_at = None
+    if duration is not None:
+        duration_delta = parse_duration(duration)
+        expires_at = timezone.now() + duration_delta
 
-    # 5) Provision‑Objekt erzeugen
+    # 6) Provision‑Objekt erzeugen
+    print(request.user)
+    print(app_def)
+    print(host)
+    print(expires_at)
     provision = ProvisionedApp.objects.create(
         user=request.user,
         app=app_def,
@@ -186,11 +211,11 @@ def _handle_deploy(request):
         status='pending',
     )
 
-    # 6) Deploy‑Task starten
+    # 7) Deploy‑Task starten
     deploy_app_task(provision.id, env_vars)
     provision.refresh_from_db()
 
-    # 7) Erfolgspage
+    # 8) Erfolgspage
     return render(request, 'paas/deploy_success.html', {
         'provision': provision,
         'app_env_vars': env_vars,

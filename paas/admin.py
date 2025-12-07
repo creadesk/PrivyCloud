@@ -3,10 +3,10 @@ from .models import (
   AppDefinition,
   RemoteHost,
   ProvisionedApp,
-  UserAppLimit,
   AppEnvVarPerApp,
   AppVolumePerApp,
   ConfigPatch,
+  UserDeploymentLimit,
 )
 
 @admin.register(AppDefinition)
@@ -21,14 +21,14 @@ class RemoteHostAdmin(admin.ModelAdmin):
 
 @admin.register(ProvisionedApp)
 class ProvisionedAppAdmin(admin.ModelAdmin):
-  list_display = ('user', 'app', 'host', 'status')
-  list_filter = ('status', 'app')
-  search_fields = ('user__username', 'app__name', 'host__hostname')
+    list_display = ('user', 'app', 'host', 'status', 'expires_at')
+    list_filter = ('status', 'expires_at')
+    search_fields = ('user__username', 'app__name', 'host__hostname')
 
-@admin.register(UserAppLimit)
-class UserAppLimitAdmin(admin.ModelAdmin):
-  list_display = ('user', 'max_apps')
-  search_fields = ('user__username',)
+@admin.register(UserDeploymentLimit)
+class UserDeploymentLimitAdmin(admin.ModelAdmin):
+    list_display = ('user', 'max_concurrent_apps', 'max_total_hours_per_day', 'max_duration')
+    search_fields = ('user__username',)
 
 @admin.register(AppEnvVarPerApp)
 class AppEnvVarPerAppAdmin(admin.ModelAdmin):

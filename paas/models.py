@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 import uuid
 from core.settings import PAAS_MAX_FREE_APPS_PER_USER
 
@@ -45,13 +46,20 @@ class RemoteHost(models.Model):
 
 class ProvisionedApp(models.Model):
   """Aufgezeichnete Bereitstellungen."""
-  user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+  user = models.ForeignKey(
+      settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+      related_name='provisioned_apps',
+  )
   app = models.ForeignKey(AppDefinition, on_delete=models.CASCADE)
   host = models.ForeignKey(RemoteHost, on_delete=models.CASCADE)
   container_id = models.CharField(max_length=64, blank=True, null=True)
   container_name = models.CharField(max_length=128, blank=True, null=True)
   started_at = models.DateTimeField(default=timezone.now)
-  expires_at = models.DateTimeField()
+  # `expires_at` ist jetzt nullable → „Ohne Limit“ kann als `None` gespeichert werden.
+  expires_at = models.DateTimeField(
+      null=True, blank=True,
+      help_text=_('Zeitpunkt, zu dem die Bereitstellung endet. `None` = kein Limit.'),
+  )
   port = models.PositiveIntegerField(blank=True, null=True)
   # Status: pending, running, finished, error, deleted
   status = models.CharField(max_length=32, default='pending')
@@ -67,38 +75,47 @@ class ProvisionedApp(models.Model):
       verbose_name = "Provisioned App"
       verbose_name_plural = "Provisioned Apps"
 
+  def is_active(self):
+      return self.status == 'active' and (self.expires_at is None or self.expires_at > timezone.now())
+
   def __str__(self):
       return f"{self.user} – {self.app} on {self.host}"
 
 
-
-# -------------------------------------------------------------------------------
-# Klasse – Maximale Apps pro User
-# -------------------------------------------------------------------------------
-class UserAppLimit(models.Model):
+'''
+> 1. **max_concurrent_apps** – verhindert, dass ein User zu viele Apps gleichzeitig laufen hat.  
+> 2. **max_total_hours_per_day** – verhindert, dass ein User die Systemkapazität überstrapaziert.  
+> 3. **max_duration** – limitiert einzelne Bereitstellungen (z.B. keine 6‑Monats‑Apps für Junior‑Admins).
+'''
+class UserDeploymentLimit(models.Model):
     """
-    Gibt an, wie viele Apps ein einzelner User maximal gleichzeitig
-    betreiben darf.  Falls keine Instanz vorhanden ist, gilt der
-    Default‑Wert aus `default_max` (siehe Settings oder hier hard‑coded).
+    Speichert pro User, wie viele Apps gleichzeitig und wie lange
+    ein User bereitstellen darf.
     """
     user = models.OneToOneField(
-      settings.AUTH_USER_MODEL,
-      on_delete=models.CASCADE,
-      related_name="app_limit"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='deployment_limit',
     )
-    max_apps = models.PositiveIntegerField(default=PAAS_MAX_FREE_APPS_PER_USER)  # Default = PAAS_MAX_FREE_APPS_PER_USER Apps
-
-    class Meta:
-      verbose_name = "User App Limit"
-      verbose_name_plural = "User App Limits"
+    max_concurrent_apps = models.PositiveIntegerField(
+        default=3,
+        help_text=_('Maximale Anzahl gleichzeitiger Bereitstellungen.'),
+    )
+    max_total_hours_per_day = models.PositiveIntegerField(
+        default=48,
+        help_text=_('Maximale Gesamtzeit (in Stunden) pro Tag.'),
+    )
+    max_duration = models.DurationField(
+        null=True, blank=True,
+        help_text=_('Maximale Dauer pro Bereitstellung. `None` = unbegrenzt.'),
+    )
 
     def __str__(self):
-      return f"{self.user.username} – max {self.max_apps} Apps"
+        return f'{self.user} – {self.max_concurrent_apps} Apps'
 
-    # Optional: Schnellzugriff für ein User-Objekt
-    @property
-    def limit(self):
-      return self.max_apps
+    class Meta:
+        verbose_name = _('Deployment‑Limit')
+        verbose_name_plural = _('Deployment‑Limits')
+
 
 
 # alle möglichen docker Umgebungsvariablen pro app mit Standardwerten
