@@ -13,6 +13,8 @@ from authent.forms import CaptchaForm
 from core.settings import PLATFORM_NAME, IP_RATELIMIT_PER_MINUTE
 from django_smart_ratelimit import rate_limit
 
+from paas.models import UserDeploymentLimit
+
 
 def generateRandomString(length=20):
   """
@@ -212,6 +214,10 @@ def register_view(request):
             user = User(username=username)
             user.set_password(password)  # Wichtig: Passwort verschlüsseln
             user.save()
+
+            # -> automatischer Limit‑Eintrag
+            UserDeploymentLimit.objects.create(user=user)
+
             request.session['user_saved_in_this_session'] = 'YES'
 
             # Optional: Benutzer einloggen

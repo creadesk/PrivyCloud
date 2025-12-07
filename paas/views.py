@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.dateparse import parse_duration
 from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp
 from .forms import DeployForm, DeployFormAdmin
+from .strategies import LeastLoadStrategy
 from .tasks import deploy_app_task, delete_container_task
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
@@ -24,6 +25,9 @@ def _check_user_limits(user, requested_duration, request):
     2. Max. gesamt Stunden pro Tag
     3. Max. Dauer pro einzelne Bereitstellung
     """
+
+    requested_duration_dt = parse_duration(requested_duration)
+
     # 1) gleichzeitige Apps
     active_apps = ProvisionedApp.objects.filter(user=user, status='active')
     if active_apps.count() >= user.deployment_limit.max_concurrent_apps:
@@ -38,14 +42,14 @@ def _check_user_limits(user, requested_duration, request):
 
     # add requested
     if requested_duration is not None:
-        today_total += requested_duration.total_seconds() / 3600
+        today_total += requested_duration_dt.total_seconds() / 3600
 
     if today_total > user.deployment_limit.max_total_hours_per_day:
         return False
 
     # 3) max Dauer pro Bereitstellung
     max_dur = user.deployment_limit.max_duration
-    if max_dur and requested_duration and requested_duration > max_dur:
+    if max_dur and requested_duration_dt and requested_duration_dt > max_dur:
         return False
 
     return True
@@ -182,8 +186,15 @@ def _handle_deploy(request, form):
         )
 
 
-    # 3) Zielhost wählen (hier einfaches Round‑Robin für normale user + Wahlfreiheit für superuser)
-    host = target_host if request.user.is_superuser else RemoteHost.objects.first()
+    # 3) Zielhost wählen (Wahlfreiheit für superuser + entsprechende Auswahlstrategie (strategies.py) für normale user)
+    #host = target_host if request.user.is_superuser else RemoteHost.objects.first()
+    if request.user.is_superuser:
+        # Super‑users pick from the UI
+        host = target_host
+    else:
+        # Normal users – use your strategy of choice
+        strategy = LeastLoadStrategy()  # or RoundRobinStrategy()
+        host = strategy.select_target(request, request.user, RemoteHost.objects.all())
 
     # 4) Limits prüfen
     if not _check_user_limits(request.user, duration, request):

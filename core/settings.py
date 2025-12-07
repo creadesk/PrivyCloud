@@ -31,6 +31,11 @@ ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_raw.split(',')]
 
 STRING_TO_ADMIN_PATH = os.getenv('STRING_TO_ADMIN_PAGE', 'admin/')
 
+ADMIN_IP_LIMITER_ENABLED = os.getenv('ADMIN_IP_LIMITER_ENABLED','True').lower() in ('1', 'true', 'yes')
+
+private_ip_ranges_raw = os.getenv('PRIVATE_IP_RANGES', '127.0.0.1')
+PRIVATE_IP_RANGES = [h.strip() for h in private_ip_ranges_raw.split(',')]
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -225,6 +230,15 @@ CELERY_BEAT_SCHEDULE = {
         'options': {
             'expires': 180,      # Task wird nach max. 3 Minuten als verloren markiert
             'queue': 'celery',   # explizit in die TTL-Queue schicken
+        },
+    },
+    'update-remote-loads': {
+        'task': 'paas.tasks.update_remote_loads',
+        #'schedule': crontab(minute='*/5'),   # 0,5,10,15,...
+        'schedule': timedelta(minutes=5),
+        'options': {
+            'expires': 600,       # Task wird nach max. 10 Minuten als verloren markiert
+            'queue': 'celery',
         },
     },
 }

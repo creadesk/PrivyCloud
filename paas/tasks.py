@@ -3,6 +3,7 @@ import time
 import paramiko
 from pathlib import Path
 from django.utils import timezone
+from datetime import datetime
 from django.db import transaction
 from django.conf import settings
 from tornado.gen import sleep
@@ -11,6 +12,8 @@ from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, 
 from celery import shared_task # celery framework
 from celery import app # celery app datei
 import logging
+import re
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 logger = logging.getLogger(__name__)
@@ -492,7 +495,7 @@ def delete_container_by_id(provision_id: int, *_, **__):
 
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, name='paas.tasks.sweep_expired_containers')
 def sweep_expired_containers(self):
     """
     Findet alle abgelaufenen ProvisionedApps (running/deleting) und löscht sie.
@@ -560,3 +563,71 @@ def delete_container_task(provision_id: int):
     except Exception as exc:
         logger.exception("[delete_container_task] Fehler")
         raise
+
+# --------------------------------------------------------------------------- #
+#  Parse CPU‑Last aus „uptime“ oder „cat /proc/loadavg“
+# --------------------------------------------------------------------------- #
+def _parse_loadavg(output: str) -> float:
+    """
+    Erwartet Output einer Zeile wie:
+        12:34:56 up 1 day,  3:45,  1 user,  load average: 0.25, 0.45, 0.32
+    Gibt den ersten Load‑Average‑Wert (last 1 min) als Float zurück.
+    """
+    # Finde alle Float‑Werte am Ende
+    match = re.match(r'\s*([0-9]+(?:\.[0-9]+)?)', output)
+    # match = re.search(r'load average:\s*([0-9.,]+)', output)
+    if not match:
+        raise ValueError(f"Ungültige loadavg‑Zeile: {output!r}")
+    return float(match.group(1))
+
+    # In Debian/Ubuntu ist das Trennzeichen „,“ – deshalb ersetzen wir Komma durch Punkt
+    load_str = match.group(1).replace(',', '.')
+    # Der erste Wert ist der 1‑Min‑Durchschnitt
+    return float(load_str.split()[0])
+
+
+@shared_task(bind=True, name='paas.tasks.update_remote_loads')
+def update_remote_loads(self):
+    """
+    Wird regelmäßig (Beat) ausgeführt und aktualisiert die CPU‑Last aller RemoteHost‑Instanzen.
+    """
+    logger.info("Update CPU‑Load aller RemoteHosts gestartet")
+    successes = 0
+    failures = 0
+
+    for host in RemoteHost.objects.all():
+        try:
+            # Methode: uptime
+            with _ssh_client(host) as ssh:
+                _, out, _ = _run_cmd(ssh, 'uptime')
+            load = _parse_loadavg(out)
+            '''
+            Falls `uptime` nicht verfügbar ist (z.B. auf minimalistischen Docker‑Hosts), kann man stattdessen `cat /proc/loadavg` ausführen:            
+            out = _run_ssh_command(host, 'cat /proc/loadavg')
+            load = float(out.split()[0])                        
+            Das liefert denselben ersten Load‑Average‑Wert.
+            '''
+
+            # Für ein Feld, das 0–10 (100 %) bedeutet, normalisieren:
+            load_normalized = min(max(load, 0.0), 10.0)
+
+            # Validierung mit Django‑Validators (falls ein Fehler auftreten sollte)
+            host.current_load = load_normalized
+            host.full_clean()          # Validiert Min/Max
+            host.save(update_fields=['current_load'])
+            logger.debug(f"Host {host.hostname} ({host.ip_address}): load={load_normalized}")
+            successes += 1
+
+        except Exception as exc:
+            logger.error(
+                f"Fehler beim Abruf von {host.hostname} ({host.ip_address}): {exc}",
+                exc_info=True,
+            )
+            failures += 1
+            # Optional: host.current_load auf None setzen, falls Fehlgeschlagen
+            # host.current_load = None
+            # host.save(update_fields=['current_load'])
+
+    logger.info(
+        f"CPU‑Load Update beendet – {successes} erfolgreich, {failures} fehlgeschlagen."
+    )

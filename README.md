@@ -305,6 +305,8 @@ docker run -d \
   -e STRING_TO_ADMIN_PAGE=<geheime_lange_zeichenkette> \
   -e DEBUG=true \
   -e ALLOWED_HOSTS=127.0.0.1,localhost \
+  -e ADMIN_IP_LIMITER_ENABLED=True \
+  -e PRIVATE_IP_RANGES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8 \
   -e DB_ENGINE=django.db.backends.sqlite3 \
   -e DB_NAME=db/db.sqlite3 \
   -e REDIS_SERVER_IP=<ip_redis_server> \

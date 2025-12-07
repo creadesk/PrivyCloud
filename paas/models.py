@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import uuid
@@ -34,6 +35,20 @@ class RemoteHost(models.Model):
   ssh_user = models.CharField(max_length=32, default='root')
   ssh_key_path = models.CharField(max_length=256)   # Pfad zur privaten Schlüsseldatei
   # Optionale Felder: Last, free_port_range etc.
+  # ------------------------------------------------------------------
+  #  Neues Feld: „current_load“
+  #  - Typ: FloatField, damit wir zum Beispiel 0.12, 1.75, … speichern können.
+  #  - validators: 0 ≤ load ≤ 10 (Du kannst die Grenzen anpassen)
+  #  - null=True / blank=True, damit ältere Daten nicht sofort einen Wert brauchen.
+  # ------------------------------------------------------------------
+  current_load = models.FloatField(
+      default=0.0,
+      validators=[
+          MinValueValidator(0.0),  # kein negativer Load
+          MaxValueValidator(10.0)  # maximal 10, z.B. „10.0“ = 100 % CPU‑Last
+      ],
+      help_text="Aktuelle CPU‑Last des Hosts (0.0 – 10.0)."
+  )
 
   class Meta:
       verbose_name = "Remote Host"
