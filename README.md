@@ -279,7 +279,7 @@ docker build -t prj_privycloud .
 ```
 ### (Alternativ)Image herunterladen
 ```bash
-....
+docker pull ghcr.io/creadesk/privycloud:latest
 ```
 ### Verzeichnisse anlegen
 ```bash
