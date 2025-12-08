@@ -4,7 +4,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import uuid
-from core.settings import PAAS_MAX_FREE_APPS_PER_USER
 
 class AppDefinition(models.Model):
   """Vordefinierte Apps, die bereitgestellt werden können."""
