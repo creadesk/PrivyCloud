@@ -39,17 +39,25 @@
 
 ### 1. Klone das Repository
 ```bash
+sudo apt install git
+
 git clone https://github.com/creadesk/PrivyCloud.git
-cd prj_PrivyCloud
+
+cd PrivyCloud
+
+mkdir logs
+mkdir db
 ```
 
 ### 2. Virtuelle Umgebung erstellen
 ```bash
+sudo apt install python-is-python3
+
+sudo apt install python3.12-venv
+
 python -m venv .venv
 
-source .venv/bin/activate   # Linux/macOS 
-
-.\.venv\Scripts\activate  # Windows
+source .venv/bin/activate
 ```
 
 ### 3. Abhängigkeiten installieren
@@ -57,22 +65,24 @@ source .venv/bin/activate   # Linux/macOS
 pip install -r requirements.txt
 ```
 
-### 4. Datenbank migrieren
+### 4. .env-Datei anlegen:
+
 ```bash
-python manage.py migrate
+nano .env
 ```
 
-### 5. Superuser anlegen
-```bash
-python manage.py createsuperuser
-```
-
-### 6. .env-Datei anlegen:
 ```dotenv
 SECRET_KEY='django-insecure-<lange_zufällige_zeichenkette>'
 DEBUG=True
 ALLOWED_HOSTS=127.0.0.1,localhost
 STRING_TO_ADMIN_PAGE=<beliebige_individuelle_zeichenkette>/
+
+# Schalte den IP‑Filter ein/aus
+ADMIN_IP_LIMITER_ENABLED=True
+
+# Definiere die zulässigen privaten Netzwerke
+PRIVATE_IP_RANGES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8
+# > **Hinweis**: Wenn `PRIVATE_IP_RANGES` leer oder nicht gesetzt ist, wird die Middleware auf die RFC‑1918‑Standardwerte zurückfallen.
 
 #DB_ENGINE=django.db.backends.postgresql
 DB_ENGINE=django.db.backends.sqlite3
@@ -87,18 +97,38 @@ REDIS_SERVER_PORT=<port_redis_server>
 REDIS_SERVER_DB=<db_nummer>
 ```
 
-### 7. Server+Celery starten
+### 5. Datenbank migrieren
 ```bash
-python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
+python manage.py makemigrations
+
+python manage.py migrate
 ```
 
+### 6. Superuser anlegen
+```bash
+python manage.py createsuperuser
+```
 
-## Datenbank-Import Startkonfiguration
+### 7. Datenbank-Import Startkonfiguration
 - mindestens benötigte Datensätze in sqlite db einfügen
 ```bash
 python manage.py db_start_config
 ```
 
+### 8. Server+Celery starten
+```bash
+python manage.py runserver_plus --addrport 0.0.0.0:8000 --loglevel debug
+```
+
+### 9. Web-Zugriff
+User: 
+http://127.0.0.1:8000
+
+Admin (siehe env "STRING_TO_ADMIN_PAGE"):
+http://127.0.0.1:8000/<wie_in_env_datei_gesetzt>
+
+Flower/Celery:
+http://127.0.0.1:5555
 
 
 ## Remotehost vorbereiten
@@ -191,15 +221,6 @@ UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_addr
 Die Pflege der Zielserver kann auch über die Admin-Oberfläche --> Rubrik "PAAS" --> "Remote Hosts" durchgeführt werden.
 
 
-## Web-Zugriff
-User: 
-http://127.0.0.1:8000
-
-Admin (siehe env "STRING_TO_ADMIN_PAGE"):
-http://127.0.0.1:8000/<wie_in_env_datei_gesetzt>
-
-Flower/Celery:
-http://127.0.0.1:5555
 
 
 ## Dienste einrichten
@@ -319,7 +340,7 @@ docker run -d \
 cp ~/.ssh/deploy_key ./keys/
 cp ~/.ssh/deploy_key.pub ./keys/
 ```
-### Keys für Zielserver verknüpfen
+### Keys für Zielserver in Datenbank verknüpfen
 - am Admin Panel anmelden
 - Rubrik "PAAS" --> Tabelle "Remote Hosts" --> Datensatz anlegen
 - am entsprechenden Datensatz in das Feld "Ssh key path" folgendes eintragen: "/app/keys/deploy_key" 
