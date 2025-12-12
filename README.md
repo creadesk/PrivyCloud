@@ -11,7 +11,6 @@
   - [Redis](#redis)
 - [Einrichtung](#einrichtung)
 - [Remotehost vorbereiten](#remotehost-vorbereiten)
-- [Web‑Zugriff](#web-zugriff)
 - [Dienste einrichten](#dienste-einrichten)
 - [Docker](#docker)
 - [Lizenz](#lizenz)
