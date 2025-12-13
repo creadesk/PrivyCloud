@@ -293,12 +293,24 @@ sudo journalctl -xe -u gunicorn_privycld.service
 ## Docker
 ### Image lokal erstellen 
 ```bash
+sudo apt install -y docker.io
+sudo apt install -y docker-buildx
+sudo usermod -aG docker $USER
+sudo reboot
+
+sudo apt install -y git
+
 git clone https://github.com/creadesk/PrivyCloud.git
-cd prj_PrivyCloud
-docker build -t prj_privycloud .
+
+cd PrivyCloud
+
+DOCKER_BUILDKIT=1 docker build -t privycloud:latest .
+
 ```
 ### (Alternativ)Image herunterladen
 ```bash
+mkdir PrivyCloud
+cd PrivyCloud
 docker pull ghcr.io/creadesk/privycloud:latest
 ```
 ### Verzeichnisse anlegen
@@ -332,7 +344,7 @@ docker run -d \
   -e REDIS_SERVER_IP=<ip_redis_server> \
   -e REDIS_SERVER_PORT=<port_redis_server> \
   -e REDIS_SERVER_DB=<db_redis_server> \
-  prj_privycloud:latest
+  ghcr.io/creadesk/privycloud:latest
 ```
 ### Keys für Zielserver bereitstellen
 ```bash
