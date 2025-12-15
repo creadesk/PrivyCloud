@@ -316,8 +316,11 @@ DOCKER_BUILDKIT=1 docker build -t privycloud:latest .
 ### (Alternativ)Image herunterladen
 ```bash
 mkdir PrivyCloud
+
 cd PrivyCloud
+
 docker pull ghcr.io/creadesk/privycloud:latest
+
 Alternativ:
 docker pull codeberg.org/creadesk/privycloud:latest
 ```
