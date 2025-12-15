@@ -42,6 +42,9 @@ sudo apt install git
 
 git clone https://github.com/creadesk/PrivyCloud.git
 
+Alternativ:
+git clone https://codeberg.org/creadesk/PrivyCloud.git
+
 cd PrivyCloud
 
 mkdir logs
@@ -302,6 +305,9 @@ sudo apt install -y git
 
 git clone https://github.com/creadesk/PrivyCloud.git
 
+Alternativ:
+git clone https://codeberg.org/creadesk/PrivyCloud.git
+
 cd PrivyCloud
 
 DOCKER_BUILDKIT=1 docker build -t privycloud:latest .
@@ -312,6 +318,8 @@ DOCKER_BUILDKIT=1 docker build -t privycloud:latest .
 mkdir PrivyCloud
 cd PrivyCloud
 docker pull ghcr.io/creadesk/privycloud:latest
+Alternativ:
+docker pull codeberg.org/creadesk/privycloud:latest
 ```
 ### Verzeichnisse anlegen
 ```bash
@@ -344,7 +352,7 @@ docker run -d \
   -e REDIS_SERVER_IP=<ip_redis_server> \
   -e REDIS_SERVER_PORT=<port_redis_server> \
   -e REDIS_SERVER_DB=<db_redis_server> \
-  ghcr.io/creadesk/privycloud:latest
+  <docker_image_name>
 ```
 ### Keys für Zielserver bereitstellen
 ```bash
