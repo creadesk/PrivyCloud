@@ -42,7 +42,6 @@ sudo apt install git
 
 git clone https://github.com/creadesk/PrivyCloud.git
 
-
 Alternativ:
 git clone https://codeberg.org/creadesk/PrivyCloud.git
 
