@@ -14,7 +14,7 @@ urlpatterns = [
     path('',dashboard.views.dashboard, name="dashboard"),
     path('verify-2fa/', authent.views.verify_2fa, name='verify_2fa'),
     path('register/', authent.views.register_view,name='register'),
-    path('login/', authent.views.login_view,name='login'),
+    path('user-login/', authent.views.login_view,name='login'),
     path('logout/', authent.views.logout_view,name='logout'),
     path('captcha/', include('captcha.urls')),
     path('paas/',paas.views.my_apps, name="paas_my_apps"),

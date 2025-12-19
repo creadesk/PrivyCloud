@@ -15,11 +15,14 @@ cron_descriptor==2.0.6
 cryptography==46.0.3
 Django==5.2.8
 django-celery-beat==2.8.1
+django-formtools==2.5.1
 django-otp==1.6.3
+django-phonenumber-field==8.4.0
 django-ranged-response==0.2.0
 django-simple-captcha==0.6.2
 django-smart-ratelimit==0.8.11
 django-timezone-field==7.1
+django-two-factor-auth==1.18.1
 flower==2.0.1
 google-auth==2.43.0
 gunicorn==23.0.0

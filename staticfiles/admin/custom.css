@@ -1,0 +1,162 @@
+/* ──────────────────────────────────────
+ Allgemeine Reset‑/Box‑Sizing‑Einstellungen
+ ────────────────────────────────────── */
+* {
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ──────────────────────────────────────
+ Body‑Hintergrund + Gradient
+ ────────────────────────────────────── */
+body {
+  background-color: #2e2e2e;          /* Dunkelgrau */
+  background-image: linear-gradient(
+      45deg,
+      rgba(255,165,0,0.5),
+      transparent
+  );
+  color: #ffffff;                     /* Weißer Text für Kontrast */
+}
+
+/* ──────────────────────────────────────
+ Header‑Farbe anpassen (falls gewünscht)
+ ────────────────────────────────────── */
+#header {
+  background: #2e2e2e;
+  border-bottom: 1px solid #444;
+}
+
+/* ──────────────────────────────────────
+ Links im Header (Navigation, logout …)
+ ────────────────────────────────────── */
+#header a,
+#header .module,
+#header .module a,
+#header .nav-sidebar a {
+  color: #ffffff;
+}
+
+#header a:hover,
+#header .module a:hover,
+#header .nav-sidebar a:hover {
+  color: #f39c12;
+}
+
+/* ──────────────────────────────────────
+ Buttons (z. B. “Save”, “Delete”)
+ ────────────────────────────────────── */
+.button,
+.btn,
+.button-link {
+  background: #f39c12 !important;   /* Orange */
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+}
+
+.button:hover,
+.btn:hover,
+.button-link:hover {
+  background: #e67e22;
+}
+
+/* ──────────────────────────────────────
+ Formulare, Felder, Tabs
+ ──────────────────────────────────────
+ (Hier können Sie weitere gezielte Farbänderungen ergänzen,
+ ohne die Layout‑Klassen zu überschreiben.)
+ ────────────────────────────────────── */
+
+/* Beispiel: Feldbeschriftung */
+label, .field-label {
+  color: #f39c12;
+}
+
+/* Beispiel: Tab-Hintergrund */
+ul#tabs li.selected a {
+  background: #2e2e2e;
+  color: #ffffff;
+}
+
+.module caption {
+    background: black;
+}
+
+a:link {
+    color: black;
+}
+
+tr:nth-child(2n+1) {
+    background: #e67e22;
+}
+
+tr:nth-child(2n) {
+    background: #e67e22;
+}
+
+#nav-sidebar .current-model {
+    background: #e67e22;
+}
+
+div.breadcrumbs {
+    background: #201409;
+}
+
+fieldset .fieldset-heading {
+    background: #201409 !important;
+    border: 0 !important;
+}
+
+.selector-chosen-title {
+    background: #201409 !important;
+}
+
+.submit-row input.default, input[type="submit"] {
+    background-color: #e67e22 !important;
+    color: black;
+}
+
+.submit-row a.deletelink {
+    height: auto !important;
+}
+
+/* Umschaltung Dark/Light Mode abschalten */
+html[data-theme="light"], :root {
+  --primary: #264b5d;
+  --primary-fg: #f7f7f7;
+  --body-fg: #eeeeee;
+  --body-bg: #121212;
+  --body-quiet-color: #d0d0d0;
+  --body-medium-color: #e0e0e0;
+  --body-loud-color: #ffffff;
+  --breadcrumbs-link-fg: #e0e0e0;
+  --breadcrumbs-bg: var(--primary);
+  --link-fg: #81d4fa;
+  --link-hover-color: #4ac1f7;
+  --link-selected-fg: #6f94c6;
+  --hairline-color: #272727;
+  --border-color: #353535;
+  --error-fg: #e35f5f;
+  --message-success-bg: #006b1b;
+  --message-warning-bg: #583305;
+  --message-error-bg: #570808;
+  --darkened-bg: #212121;
+  --selected-bg: #1b1b1b;
+  --selected-row: #00363a;
+  --close-button-bg: #333333;
+  --close-button-hover-bg: #666666;
+  color-scheme: dark;
+}
+
+.theme-toggle svg.theme-icon-when-auto, .theme-toggle svg.theme-icon-when-dark, .theme-toggle svg.theme-icon-when-light {
+    background-color: #2e2e2e;
+    color: #2e2e2e;
+    fill: #2e2e2e;
+    cursor: default !important;
+}
+
+.theme-toggle {
+    cursor: default !important;
+}

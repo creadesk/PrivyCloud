@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'paas.apps.PaasConfig',
     'config',
     'django_celery_beat',
+    'two_factor',
 ]
 
 MIDDLEWARE = [
@@ -142,7 +143,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
-#STATIC_ROOT =  os.path.join(BASE_DIR,'static/')
+STATIC_ROOT = os.path.join(BASE_DIR,'staticfiles')
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
@@ -158,7 +159,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # under which url to serve uploaded files
 MEDIA_URL = "/media/"
 
-LOGIN_URL = 'login/'
+LOGIN_URL = '/user-login/'      # für die normale Auth
+LOGIN_REDIRECT_URL = '/'        # nach erfolgreicher Auth
 
 PLATFORM_NAME = 'PrivyCloud'
 OTP_TOTP_ISSUER = PLATFORM_NAME
