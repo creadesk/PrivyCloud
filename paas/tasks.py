@@ -16,13 +16,131 @@ import re
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
+import subprocess
+from typing import Tuple
+import contextlib
+from typing import Generator
+
 logger = logging.getLogger(__name__)
+
+
+# ----------------------------------------------------
+# Lokaler SSH‑Client (für localhost)
+# ----------------------------------------------------
+
+class LocalSFTP:
+    """Minimaler Ersatz für Paramiko SFTP – nutzt einfach Python‑I/O."""
+    def open(self, path: str, mode: str):
+        # Im lokalen Fall muss das Verzeichnis existieren
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        return open(path, mode)
+
+class LocalSSH:
+    """Paramiko‑ähnlicher Client für die lokale Maschine"""
+
+    def __init__(self, host: "RemoteHost"):
+        self.host = host
+        self.host_obj = host          # damit get_transport() etwas weiß
+
+    # ------------------------------------------------------------------
+    # Dummy‑Transport‑Interface (nur get_username() wird benötigt)
+    # ------------------------------------------------------------------
+    def get_transport(self):
+        class DummyTransport:
+            def __init__(self, username):
+                self._user = username
+
+            def get_username(self):
+                return self._user
+
+        username = (
+            getattr(self.host_obj, "ssh_user", None)
+            or os.getenv("USER", "root")
+        )
+        return DummyTransport(username)
+
+    # ------------------------------------------------------------------
+    # Dummy SFTP‑Interface – **context‑manager‑fähig** + stat()
+    # ------------------------------------------------------------------
+    def open_sftp(self):
+        """
+        Liefert ein Objekt, das Paramiko’s SFTP‑Client simuliert
+        und als Kontext‑Manager verwendet werden kann.
+        """
+
+        class DummySFTP:
+            """Minimale SFTP‑Simulation für lokale Dateien"""
+
+            def __init__(self, base_dir: Path):
+                self.base_dir = base_dir
+
+            def open(self, remote_path, mode="r"):
+                local_path = Path(remote_path).expanduser()
+                if "w" in mode:
+                    local_path.parent.mkdir(parents=True, exist_ok=True)
+                return open(local_path, mode, encoding="utf-8")
+
+            # ---- Kontext‑Manager‑API -----------------------------------
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                # Dummy – nichts zu tun
+                pass
+
+            # --------------------- stat() --------------------------------
+            def stat(self, remote_path):
+                """Prüft, ob die Datei existiert – wirft FileNotFoundError,
+                wenn sie nicht vorhanden ist."""
+                path = Path(remote_path).expanduser()
+                if not path.exists():
+                    raise FileNotFoundError(f"File {remote_path} not found")
+                # Bei Paramiko würde hier ein SFTPAttributes‑Objekt zurück
+                # kommen; das konkreten Objekt braucht unser Code nicht,
+                # daher einfach Path.stat() zurückgeben.
+                return path.stat()
+
+            def close(self):
+                pass
+
+        # Basis: Home‑Verzeichnis
+        return DummySFTP(Path.home())
+
+    # ---- exec_command --------------------------------------------------
+    def exec_command(self, cmd):
+        res = subprocess.run(
+            cmd, shell=True, text=True, capture_output=True
+        )
+        return res.returncode, res.stdout.strip(), res.stderr.strip()
+
+    # ---- Kontext‑Manager‑API ------------------------------------------
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
 
 # ----------------------------------------------------------------------
 # SSH‑Hilfsfunktionen
 # ----------------------------------------------------------------------
-def _ssh_client(host: RemoteHost):
-    """Paramiko‑Client für einen Remote‑Host."""
+@contextlib.contextmanager
+def _ssh_client(host: "RemoteHost") -> Generator:
+    """
+    Liefert einen SSH‑Client (Paramiko‑Client für echte Remote‑Hosts
+    oder LocalSSH für localhost/127.0.0.1) als Context‑Manager.
+    """
+    # Lokaler Host
+    if getattr(host, "hostname", None) in ("localhost", "127.0.0.1", "0.0.0.0") \
+       or getattr(host, "ip_address", None) in ("127.0.0.1", "localhost", "0.0.0.0"):
+        ssh = LocalSSH(host)
+        try:
+            yield ssh
+        finally:
+            pass
+        return
+
+    # Remote‑Host
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
@@ -31,14 +149,40 @@ def _ssh_client(host: RemoteHost):
         key_filename=str(Path(host.ssh_key_path).expanduser()),
         timeout=15,
     )
-    return ssh
+    try:
+        yield ssh
+    finally:
+        ssh.close()
 
 
 def _run_cmd(ssh, cmd: str):
-    """Ausführen eines Befehls und Rückgabe von (exit_status, stdout, stderr)."""
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-    exit_status = stdout.channel.recv_exit_status()
-    return exit_status, stdout.read().decode().strip(), stderr.read().decode().strip()
+    """
+    Unified wrapper that works with both a Paramiko SSHClient
+    *and* the LocalSSH helper used for localhost.
+    Returns: (exit_code: int, stdout: str, stderr: str)
+    """
+    # Execute the command once
+    result = ssh.exec_command(cmd)
+
+    # ----------------- Detect local return (int, str, str) -----------------
+    # Paramiko returns a tuple of ChannelFile objects → first element is NOT int
+    if isinstance(result, tuple) and len(result) == 3:
+        # local:  (int, str, str)
+        if isinstance(result[0], int):
+            exit_code, out, err = result
+            # Ensure strings (no trailing newlines)
+            if not isinstance(out, str):
+                out = out.decode().strip()
+            if not isinstance(err, str):
+                err = err.decode().strip()
+            return exit_code, out, err
+
+    # ----------------- Paramiko case ------------------------------------
+    stdin, stdout, stderr = result
+    exit_code = stdout.channel.recv_exit_status()
+    out = stdout.read().decode().strip()
+    err = stderr.read().decode().strip()
+    return exit_code, out, err
 
 
 def _get_user_id_uid(ssh, username: str = "deploy") -> tuple[str, str]:
@@ -103,20 +247,53 @@ def _is_port_in_use(ssh, port: int):
 def _write_systemd_unit(ssh, unit_name, unit_content):
     """
     Schreibt die unit_datei in ~/.config/systemd/user/ und lädt sie neu.
+    Funktioniert sowohl für einen echten Paramiko‑SSHClient (remote)
+    als auch für die LocalSSH‑Klasse (lokal).
     """
-    # Pfad im Home des Users
-    unit_dir = f"/home/{ssh.get_transport().get_username()}/.config/systemd/user/"
-    unit_path = f"{unit_dir}{unit_name}"
-    _run_cmd(ssh, f"mkdir -p {unit_dir}")
-    with ssh.open_sftp() as sftp:
-        with sftp.open(unit_path, "w") as f:
+    # ---------------------------------------------------------
+    # 2.1  Determine username & target directory
+    # ---------------------------------------------------------
+    if hasattr(ssh, "get_transport"):
+        # Remote / Paramiko client
+        user = ssh.get_transport().get_username()
+        unit_dir = f"/home/{user}/.config/systemd/user/"
+        # Remote: ensure dir via SSH (no local os.makedirs)
+        _run_cmd(ssh, f"mkdir -p {unit_dir}")
+        unit_path = f"{unit_dir}{unit_name}"          # remote path
+    else:
+        # Local execution – use the host_obj if available
+        host_obj = getattr(ssh, "host_obj", None)
+        user = getattr(host_obj, "ssh_user", os.getenv("USER", "root"))
+        unit_dir = Path.home() / ".config" / "systemd" / "user"
+        os.makedirs(unit_dir, exist_ok=True)
+        unit_path = unit_dir / unit_name
+
+    # ---------------------------------------------------------
+    # 2.2  Write the unit file
+    # ---------------------------------------------------------
+    try:
+        # Remote: use SFTP; Local: write directly to the filesystem
+        with ssh.open_sftp() as sftp:
+            with sftp.open(unit_path, "w") as f:
+                f.write(unit_content)
+    except AttributeError:
+        # local fallback – open the file directly
+        with open(unit_path, "w", encoding="utf-8") as f:
             f.write(unit_content)
 
-    # systemctl --user daemon-reload
-    _run_cmd(ssh, f"systemctl --user daemon-reload")
-    # enable & start
-    _run_cmd(ssh, f"systemctl --user enable {unit_name}")
-    _run_cmd(ssh, f"systemctl --user start {unit_name}")
+    # ---------------------------------------------------------
+    # 3. Reload systemd, enable & start the unit
+    # ---------------------------------------------------------
+    if hasattr(ssh, "get_transport"):
+        # Remote commands – executed via the SSH client
+        _run_cmd(ssh, f"systemctl --user daemon-reload")
+        _run_cmd(ssh, f"systemctl --user enable {unit_name}")
+        _run_cmd(ssh, f"systemctl --user start {unit_name}")
+    else:
+        # Local execution – run the commands on the host directly
+        subprocess.run("systemctl --user daemon-reload", shell=True, check=False)
+        subprocess.run(f"systemctl --user enable {unit_name}", shell=True, check=False)
+        subprocess.run(f"systemctl --user start {unit_name}", shell=True, check=False)
 
 
 def _reserve_ports(ssh, max_attempts=10):
@@ -325,6 +502,7 @@ def simple_task():
 @shared_task(bind=True, max_retries=5, default_retry_delay=60)
 def deploy_app_task(self, provision_id: int, env_vars=None,**kwargs):
     """Deploy einer App als Docker‑Container + Tor‑Hidden‑Service."""
+    provision = None
     try:
         provision = ProvisionedApp.objects.select_related("app", "host").get(pk=provision_id)
         app_def = provision.app
@@ -343,6 +521,7 @@ def deploy_app_task(self, provision_id: int, env_vars=None,**kwargs):
             # Wert: User‑Eintrag, falls vorhanden, sonst Default
             final_env[key] = env_from_user.get(key, env.value)
 
+        # SSH / Local‑Verbindung
         with _ssh_client(host) as ssh:
             # Freien Port ermitteln
             try:
@@ -403,8 +582,8 @@ WantedBy=default.target
             # Docker‑Run
 
             # UID / GID vom Remote‑User holen
-            uid = _get_user_id_uid(ssh, "deploy")
-            gid = _get_user_id_gid(ssh, "deploy")
+            uid = _get_user_id_uid(ssh, host.ssh_user)
+            gid = _get_user_id_gid(ssh, host.ssh_user)
 
             cmd_parts = [
                 f"docker run -d --restart unless-stopped",

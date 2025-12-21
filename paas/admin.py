@@ -16,7 +16,7 @@ class AppDefinitionAdmin(admin.ModelAdmin):
 
 @admin.register(RemoteHost)
 class RemoteHostAdmin(admin.ModelAdmin):
-  list_display = ('hostname', 'ip_address', 'ssh_user', 'ssh_key_path', 'current_load')
+  list_display = ('hostname', 'ip_address', 'ssh_user', 'ssh_key_path', 'current_load', 'nur_superuser')
   list_filter = ('current_load',)
   search_fields = ('hostname', 'ip_address')
 

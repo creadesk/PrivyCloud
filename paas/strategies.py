@@ -9,7 +9,7 @@ is False.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Iterable
+from typing import Iterable, List
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -20,6 +20,16 @@ from django.http import HttpRequest
 from .models import RemoteHost
 
 log = logging.getLogger(__name__)
+
+
+def _allowed_hosts(hosts: Iterable[RemoteHost]) -> List[RemoteHost]:
+    """
+    Gibt nur Hosts zurück, die *nicht* mit `nur_superuser=True` gekennzeichnet sind.
+    Arbeitet sowohl mit QuerySets als auch mit Listen/iterables.
+    """
+    if isinstance(hosts, models.QuerySet):
+        return list(hosts.filter(nur_superuser=False))
+    return [h for h in hosts if not getattr(h, "nur_superuser", False)]
 
 
 # ------------------------------------------------------------------
@@ -97,14 +107,14 @@ class RoundRobinStrategy(TargetSelectionStrategy):
         user: "User",
         hosts: Iterable[RemoteHost],
     ) -> RemoteHost | None:
-        host_list = list(hosts)
+        # ---------- 3.1.1  Filter Hosts -------------
+        host_list = _allowed_hosts(hosts)
         if not host_list:
-            log.warning("RoundRobinStrategy: No hosts available")
+            log.warning("RoundRobinStrategy: Keine erlaubten Hosts vorhanden")
             return None
 
         idx = self._get_current_index(len(host_list))
         chosen = host_list[idx]
-        # Advance index – wrap around with modulo
         next_idx = (idx + 1) % len(host_list)
         self._set_current_index(next_idx)
 
@@ -134,25 +144,23 @@ class LeastLoadStrategy(TargetSelectionStrategy):
         user: "User",
         hosts: Iterable[RemoteHost],
     ) -> RemoteHost | None:
-        # Convert to a queryset if possible so we can do ordering in the DB
-        if isinstance(hosts, models.QuerySet):
-            qs = hosts.order_by("current_load")
-            try:
-                chosen = qs.first()
-            except AttributeError:
-                # current_load missing – fall back to RR
-                log.error(
-                    "LeastLoadStrategy: RemoteHost model has no `current_load` field "
-                    "– falling back to round‑robin."
-                )
-                chosen = RoundRobinStrategy().select_target(request, user, hosts)
+        # ---------- 3.2.1  Filter Hosts -------------
+        allowed = _allowed_hosts(hosts)
+
+        # Falls wir noch ein QuerySet haben, können wir die Sortierung in DB‑Level
+        # ausführen.  Ansonsten nutzen wir Python‑min().
+        chosen = None
+
+        if isinstance(allowed, models.QuerySet):
+            # Order by current_load – und nur erlaubte Hosts
+            qs = allowed.order_by("current_load")
+            chosen = qs.first()
         else:
-            # In-memory list – use Python's min()
-            chosen = None
+            # List / iterable
             try:
-                chosen = min(hosts, key=lambda h: getattr(h, "current_load", float("inf")))
+                chosen = min(allowed, key=lambda h: getattr(h, "current_load", float("inf")))
             except Exception as exc:
-                log.exception("LeastLoadStrategy: error while computing min(): %s", exc)
+                log.exception("LeastLoadStrategy: Fehler bei min(): %s", exc)
 
         if chosen:
             log.debug(
@@ -162,5 +170,6 @@ class LeastLoadStrategy(TargetSelectionStrategy):
                 getattr(chosen, "current_load", "unknown"),
             )
         else:
-            log.warning("LeastLoadStrategy: No hosts available")
+            log.warning("LeastLoadStrategy: Keine erlaubten Hosts verfügbar")
+
         return chosen

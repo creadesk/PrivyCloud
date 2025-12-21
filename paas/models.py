@@ -28,34 +28,34 @@ class AppDefinition(models.Model):
 
 
 class RemoteHost(models.Model):
-  """Liste der Debian‑Hosts, auf denen Container laufen können."""
-  hostname = models.CharField(max_length=128, unique=True)
-  ip_address = models.GenericIPAddressField()
-  ssh_user = models.CharField(max_length=32, default='root')
-  ssh_key_path = models.CharField(max_length=256)   # Pfad zur privaten Schlüsseldatei
-  # Optionale Felder: Last, free_port_range etc.
-  # ------------------------------------------------------------------
-  #  Neues Feld: „current_load“
-  #  - Typ: FloatField, damit wir zum Beispiel 0.12, 1.75, … speichern können.
-  #  - validators: 0 ≤ load ≤ 10 (Du kannst die Grenzen anpassen)
-  #  - null=True / blank=True, damit ältere Daten nicht sofort einen Wert brauchen.
-  # ------------------------------------------------------------------
-  current_load = models.FloatField(
-      default=0.0,
-      validators=[
-          MinValueValidator(0.0),  # kein negativer Load
-          MaxValueValidator(10.0)  # maximal 10, z.B. „10.0“ = 100 % CPU‑Last
-      ],
-      help_text="Aktuelle CPU‑Last des Hosts (0.0 – 10.0)."
-  )
+    """Liste der Debian‑Hosts, auf denen Container laufen können."""
+    hostname        = models.CharField(max_length=128, unique=True)
+    ip_address      = models.GenericIPAddressField()
+    ssh_user        = models.CharField(max_length=32, default='root')
+    ssh_key_path    = models.CharField(max_length=256, null=True, blank=True)
 
-  class Meta:
-      verbose_name = "Remote Host"
-      verbose_name_plural = "Remote Hosts"
+    # ----------   Neues Feld  ------------------------------------
+    nur_superuser   = models.BooleanField(
+        default=False,
+        help_text="Nur Superuser dürfen auf diesem Host deployen."
+    )
 
-  def __str__(self):
-      #return f"{self.hostname} ({self.ip_address})"
-      return f"{self.hostname}"
+    # ----------   Optional: last‑Feld  ----------------------------
+    current_load = models.FloatField(
+        default=0.0,
+        validators=[
+            MinValueValidator(0.0),
+            MaxValueValidator(10.0),
+        ],
+        help_text="Aktuelle CPU‑Last des Hosts (0.0 – 10.0)."
+    )
+
+    class Meta:
+        verbose_name        = "Target-Host"
+        verbose_name_plural = "Target-Hosts"
+
+    def __str__(self):
+        return f"{self.hostname}"
 
 
 class ProvisionedApp(models.Model):

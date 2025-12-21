@@ -14,6 +14,9 @@ from .tasks import deploy_app_task, delete_container_task
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
 
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseForbidden
+
 
 def _check_user_limits(user, requested_duration, request):
     # Skip check für superuser
@@ -161,7 +164,18 @@ def _handle_deploy(request, form):
     try:
         target_host = RemoteHost.objects.get(hostname=target_host_selected)
     except RemoteHost.DoesNotExist:
-        target_host = None  # oder andere Fehlerbehandlung
+        target_host = None
+
+    # ---------- Host‑Restriktion prüfen --------------------
+    if target_host and target_host.nur_superuser and not request.user.is_superuser:
+        # Normal‑Users dürfen diesen Host NICHT auswählen.
+        # Wir geben eine klare Fehlermeldung zurück – keine neue Provision wird angelegt.
+        return render_deploy(
+            request,
+            error=("Der ausgewählte Host ist ausschließlich für Super‑Users "
+                   "reserviert. Bitte wähle einen anderen Host."),
+            app_def=app_def,
+        )
 
     # 1) Editierbare Environment‑Variablen extrahieren
     env_vars = {
@@ -189,12 +203,12 @@ def _handle_deploy(request, form):
     # 3) Zielhost wählen (Wahlfreiheit für superuser + entsprechende Auswahlstrategie (strategies.py) für normale user)
     #host = target_host if request.user.is_superuser else RemoteHost.objects.first()
     if request.user.is_superuser:
-        # Super‑users pick from the UI
-        host = target_host
+        host = target_host  # Super‑User wählt aus der UI
     else:
-        # Normal users – use your strategy of choice
-        strategy = LeastLoadStrategy()  # or RoundRobinStrategy()
-        host = strategy.select_target(request, request.user, RemoteHost.objects.all())
+        # Normal‑User – Strategie
+        strategy = LeastLoadStrategy()  # ggf. RoundRobinStrategy()
+        host = strategy.select_target(request, request.user,
+                                      RemoteHost.objects.all())
 
     # 4) Limits prüfen
     if not _check_user_limits(request.user, duration, request):

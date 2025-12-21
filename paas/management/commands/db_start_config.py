@@ -142,10 +142,12 @@ class Command(BaseCommand):
         paas_remotehost_sql = [
             """
             INSERT INTO "main"."paas_remotehost"
-            ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path", "current_load")
+            ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path", "current_load", "nur_superuser")
             VALUES
             ('1', '<dein_zielserver_hostname>', '<deine_zielserver_ip>', 'deploy',
-             '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key', '0.0')
+             '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key', '0.0', '0'),
+            ('2', '127.0.0.1', '127.0.0.1', '<dein_lokaler_user>',
+             '', '0.0', '1')
             ON CONFLICT ("id") DO NOTHING;
             """
         ]
