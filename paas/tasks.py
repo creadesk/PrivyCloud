@@ -274,7 +274,7 @@ def _write_systemd_unit(ssh, unit_name, unit_content):
     try:
         # Remote: use SFTP; Local: write directly to the filesystem
         with ssh.open_sftp() as sftp:
-            with sftp.open(unit_path, "w") as f:
+            with sftp.open(str(unit_path), "w") as f:
                 f.write(unit_content)
     except AttributeError:
         # local fallback – open the file directly
@@ -291,9 +291,10 @@ def _write_systemd_unit(ssh, unit_name, unit_content):
         _run_cmd(ssh, f"systemctl --user start {unit_name}")
     else:
         # Local execution – run the commands on the host directly
-        subprocess.run("systemctl --user daemon-reload", shell=True, check=False)
-        subprocess.run(f"systemctl --user enable {unit_name}", shell=True, check=False)
-        subprocess.run(f"systemctl --user start {unit_name}", shell=True, check=False)
+        subprocess.run(f"systemctl --user daemon-reload", check=False)
+        subprocess.run(f"systemctl --user enable {unit_name}", check=False)
+        subprocess.run(f"systemctl --user start {unit_name}", check=False)
+
 
 
 def _reserve_ports(ssh, max_attempts=10):
@@ -381,9 +382,16 @@ def _cleanup_provision(provision: ProvisionedApp):
             provision.onion_address = None
 
             #systemd dienst entfernen
-            _run_cmd(ssh, f"systemctl --user stop tor-hidden-service@{provision.container_name}.service")
-            _run_cmd(ssh, f"systemctl --user disable tor-hidden-service@{provision.container_name}.service")
-            _run_cmd(ssh, f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service")
+            if hasattr(ssh, "get_transport"):
+                # Remote commands – executed via the SSH client
+                _run_cmd(ssh, f"systemctl --user stop tor-hidden-service@{provision.container_name}.service")
+                _run_cmd(ssh, f"systemctl --user disable tor-hidden-service@{provision.container_name}.service")
+                _run_cmd(ssh, f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service")
+            else:
+                # Local execution – run the commands on the host directly
+                subprocess.run(f"systemctl --user stop tor-hidden-service@{provision.container_name}.service", shell=True, check=False)
+                subprocess.run(f"systemctl --user disable tor-hidden-service@{provision.container_name}.service", shell=True, check=False)
+                subprocess.run(f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service", shell=True, check=False)
 
             # tor datenverzeichnis löschen
             _run_cmd(ssh, f"rm -rf {tor_data_dir} || true")
@@ -562,7 +570,7 @@ After=network.target
 ExecStart=/usr/bin/tor --torrc-file {torrc_path} --DataDirectory {tor_data_dir}
 Restart=on-failure
 RestartSec=10s
-StandardOutput=journal  # Ausgabe ins systemd‑Journal
+StandardOutput=journal
 StandardError=inherit
 
 [Install]
