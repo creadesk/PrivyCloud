@@ -133,7 +133,8 @@ Flower/Celery:
 http://127.0.0.1:5555
 
 
-## Remotehost vorbereiten
+## Zielhosts vorbereiten
+- wenn auch lokal deployt werden soll, sind diese Schritte analog auch für den Lokalen Host durchzuführen
 
 #### Update & Docker installieren
 ```bash
@@ -217,10 +218,10 @@ sudo chmod 600 ~/.ssh/deploy_key
 sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
 
 ```sql
-UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key' WHERE "id"=1; 
+UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key' WHERE "id"=1;
 ```
 
-Die Pflege der Zielserver kann auch über die Admin-Oberfläche --> Rubrik "PAAS" --> "Remote Hosts" durchgeführt werden.
+Die Pflege der Zielserver kann auch über die Admin-Oberfläche --> Rubrik "PAAS" --> "Target Hosts" durchgeführt werden.
 
 
 

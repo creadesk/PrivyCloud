@@ -146,8 +146,8 @@ class Command(BaseCommand):
             VALUES
             ('1', '<dein_zielserver_hostname>', '<deine_zielserver_ip>', 'deploy',
              '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key', '0.0', '0'),
-            ('2', '127.0.0.1', '127.0.0.1', '<dein_lokaler_user>',
-             '', '0.0', '1')
+            ('2', '127.0.0.1', '127.0.0.1', 'deploy',
+             '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key_local', '0.0', '1')
             ON CONFLICT ("id") DO NOTHING;
             """
         ]

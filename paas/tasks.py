@@ -126,20 +126,6 @@ class LocalSSH:
 # ----------------------------------------------------------------------
 @contextlib.contextmanager
 def _ssh_client(host: "RemoteHost") -> Generator:
-    """
-    Liefert einen SSH‑Client (Paramiko‑Client für echte Remote‑Hosts
-    oder LocalSSH für localhost/127.0.0.1) als Context‑Manager.
-    """
-    # Lokaler Host
-    if getattr(host, "hostname", None) in ("localhost", "127.0.0.1", "0.0.0.0") \
-       or getattr(host, "ip_address", None) in ("127.0.0.1", "localhost", "0.0.0.0"):
-        ssh = LocalSSH(host)
-        try:
-            yield ssh
-        finally:
-            pass
-        return
-
     # Remote‑Host
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -253,47 +239,29 @@ def _write_systemd_unit(ssh, unit_name, unit_content):
     # ---------------------------------------------------------
     # 2.1  Determine username & target directory
     # ---------------------------------------------------------
-    if hasattr(ssh, "get_transport"):
-        # Remote / Paramiko client
-        user = ssh.get_transport().get_username()
-        unit_dir = f"/home/{user}/.config/systemd/user/"
-        # Remote: ensure dir via SSH (no local os.makedirs)
-        _run_cmd(ssh, f"mkdir -p {unit_dir}")
-        unit_path = f"{unit_dir}{unit_name}"          # remote path
-    else:
-        # Local execution – use the host_obj if available
-        host_obj = getattr(ssh, "host_obj", None)
-        user = getattr(host_obj, "ssh_user", os.getenv("USER", "root"))
-        unit_dir = Path.home() / ".config" / "systemd" / "user"
-        os.makedirs(unit_dir, exist_ok=True)
-        unit_path = unit_dir / unit_name
+
+    # Remote / Paramiko client
+    user = ssh.get_transport().get_username()
+    unit_dir = f"/home/{user}/.config/systemd/user/"
+    # Remote: ensure dir via SSH (no local os.makedirs)
+    _run_cmd(ssh, f"mkdir -p {unit_dir}")
+    unit_path = f"{unit_dir}{unit_name}"          # remote path
 
     # ---------------------------------------------------------
     # 2.2  Write the unit file
     # ---------------------------------------------------------
-    try:
-        # Remote: use SFTP; Local: write directly to the filesystem
-        with ssh.open_sftp() as sftp:
-            with sftp.open(str(unit_path), "w") as f:
-                f.write(unit_content)
-    except AttributeError:
-        # local fallback – open the file directly
-        with open(unit_path, "w", encoding="utf-8") as f:
+    with ssh.open_sftp() as sftp:
+        with sftp.open(str(unit_path), "w") as f:
             f.write(unit_content)
 
     # ---------------------------------------------------------
     # 3. Reload systemd, enable & start the unit
     # ---------------------------------------------------------
-    if hasattr(ssh, "get_transport"):
-        # Remote commands – executed via the SSH client
-        _run_cmd(ssh, f"systemctl --user daemon-reload")
-        _run_cmd(ssh, f"systemctl --user enable {unit_name}")
-        _run_cmd(ssh, f"systemctl --user start {unit_name}")
-    else:
-        # Local execution – run the commands on the host directly
-        subprocess.run(f"systemctl --user daemon-reload", check=False)
-        subprocess.run(f"systemctl --user enable {unit_name}", check=False)
-        subprocess.run(f"systemctl --user start {unit_name}", check=False)
+
+    # Remote commands – executed via the SSH client
+    _run_cmd(ssh, f"systemctl --user daemon-reload")
+    _run_cmd(ssh, f"systemctl --user enable {unit_name}")
+    _run_cmd(ssh, f"systemctl --user start {unit_name}")
 
 
 
@@ -382,16 +350,10 @@ def _cleanup_provision(provision: ProvisionedApp):
             provision.onion_address = None
 
             #systemd dienst entfernen
-            if hasattr(ssh, "get_transport"):
-                # Remote commands – executed via the SSH client
-                _run_cmd(ssh, f"systemctl --user stop tor-hidden-service@{provision.container_name}.service")
-                _run_cmd(ssh, f"systemctl --user disable tor-hidden-service@{provision.container_name}.service")
-                _run_cmd(ssh, f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service")
-            else:
-                # Local execution – run the commands on the host directly
-                subprocess.run(f"systemctl --user stop tor-hidden-service@{provision.container_name}.service", shell=True, check=False)
-                subprocess.run(f"systemctl --user disable tor-hidden-service@{provision.container_name}.service", shell=True, check=False)
-                subprocess.run(f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service", shell=True, check=False)
+            # Remote commands – executed via the SSH client
+            _run_cmd(ssh, f"systemctl --user stop tor-hidden-service@{provision.container_name}.service")
+            _run_cmd(ssh, f"systemctl --user disable tor-hidden-service@{provision.container_name}.service")
+            _run_cmd(ssh, f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service")
 
             # tor datenverzeichnis löschen
             _run_cmd(ssh, f"rm -rf {tor_data_dir} || true")
