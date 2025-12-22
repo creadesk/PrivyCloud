@@ -365,7 +365,7 @@ cp ~/.ssh/deploy_key.pub ./keys/
 ```
 ### Keys für Zielserver in Datenbank verknüpfen
 - am Admin Panel anmelden
-- Rubrik "PAAS" --> Tabelle "Remote Hosts" --> Datensatz anlegen
+- Rubrik "PAAS" --> Tabelle "Target Hosts" --> Datensatz anlegen
 - am entsprechenden Datensatz in das Feld "Ssh key path" folgendes eintragen: "/app/keys/deploy_key" 
 
 ## Lizenz
