@@ -10,7 +10,7 @@
 - [Voraussetzungen](#voraussetzungen)
   - [Redis](#redis)
 - [Einrichtung](#einrichtung)
-- [Remotehost vorbereiten](#remotehost-vorbereiten)
+- [Zielhosts vorbereiten](#zielhosts-vorbereiten)
 - [Dienste einrichten](#dienste-einrichten)
 - [Docker](#docker)
 - [Lizenz](#lizenz)
