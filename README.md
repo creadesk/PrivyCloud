@@ -24,6 +24,14 @@
 ### 1. Redis 
 - muss bereits installiert bzw. verfügbar sein
 - falls nicht wäre die einfachste Möglichkeit REDIS per Docker bereitzustellen
+
+
+- Docker installieren
+  ```bash
+  sudo apt-get update
+  
+  sudo apt-get install -y docker.io   # oder: docker-ce für die offizielle Docker‑Repo
+  ```
 - REDIS Server-Only:
     ```bash
     docker run -d --name redis-stack-server --restart unless-stopped -p 6379:6379 redis/redis-stack-server:latest
@@ -136,7 +144,7 @@ http://127.0.0.1:5555
 ## Zielhosts vorbereiten
 - wenn auch lokal deployt werden soll, sind diese Schritte analog auch für den Lokalen Host durchzuführen
 
-#### Update & Docker installieren
+#### Docker installieren
 ```bash
 sudo apt-get update
 
