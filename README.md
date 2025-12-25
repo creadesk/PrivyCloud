@@ -52,7 +52,7 @@
         sudo apt install redis-tools
         redis-cli -h <dein_redis_host_ip> -p 6379
         ```
-- REDIS Server + REDIS-Insight(mit Weboberfläche)
+- (Alternativ)REDIS Server + REDIS-Insight(mit Weboberfläche)
     ```bash
     docker run -d --name redis-stack --restart unless-stopped -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
     ```
