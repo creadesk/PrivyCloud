@@ -56,7 +56,7 @@
     ```bash
     docker run -d --name redis-stack --restart unless-stopped -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
     ```
-    - Web-Zugriff: http://<dein_redis_host>:8001
+    - Web-Zugriff: http://<dein_redis_host_ip>:8001
  
 
 ## Einrichtung
