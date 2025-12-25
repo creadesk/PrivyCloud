@@ -99,8 +99,9 @@ nano .env
 ```
 
 ```dotenv
-SECRET_KEY='django-insecure-<lange_zufällige_zeichenkette>'
-DEBUG=True
+SECRET_KEY='<lange_zufällige_zeichenkette>'
+# Nur in Testsystemen auf True setzen
+DEBUG=False
 ALLOWED_HOSTS=127.0.0.1,localhost
 STRING_TO_ADMIN_PAGE=<beliebige_individuelle_zeichenkette>/
 
@@ -121,6 +122,7 @@ DB_PORT=
 
 REDIS_SERVER_IP=<ip_redis_server>
 REDIS_SERVER_PORT=<port_redis_server>
+# Falls Redis neu aufgesetzt den Wert '0' setzen
 REDIS_SERVER_DB=<db_nummer>
 ```
 
