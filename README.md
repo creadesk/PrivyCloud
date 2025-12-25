@@ -32,6 +32,12 @@
   
   sudo apt-get install -y docker.io   # oder: docker-ce für die offizielle Docker‑Repo
   ```
+
+- Benutzer zur Docker Gruppe hinzufügen
+  ```bash
+  sudo usermod -aG docker <dein_benutzer>
+  ```
+
 - REDIS Server-Only:
     ```bash
     docker run -d --name redis-stack-server --restart unless-stopped -p 6379:6379 redis/redis-stack-server:latest
