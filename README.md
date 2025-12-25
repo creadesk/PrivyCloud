@@ -36,7 +36,6 @@
 - Benutzer zur Docker Gruppe hinzufügen
   ```bash
   sudo usermod -aG docker <dein_benutzer>
-  sudo reboot
   ```
 
 - Rechnerneustart
