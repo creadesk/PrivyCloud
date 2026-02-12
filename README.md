@@ -161,13 +161,23 @@ http://127.0.0.1:5555
 
 
 ## Zielhosts vorbereiten
-- wenn auch lokal deployt werden soll, sind diese Schritte analog auch für den Lokalen Host durchzuführen
+- wenn auch bzw. nur lokal bereitgestellt werden soll, sind diese Schritte analog auch für den lokalen Host durchzuführen
 
 #### Docker installieren
 ```bash
 sudo apt-get update
 
 sudo apt-get install -y docker.io   # oder: docker-ce für die offizielle Docker‑Repo
+```
+
+#### SSH installieren
+```bash
+sudo apt install ssh
+```
+
+#### TOR installieren
+```bash
+sudo apt install tor
 ```
 
 #### Neuen Benutzer "deploy" erstellen
@@ -240,15 +250,9 @@ sudo chown <app_user>:<app_user> ~/.ssh/deploy_key
 sudo chmod 600 ~/.ssh/deploy_key
 ```
 
-#### Hostname und IP in der Datenbanktabelle "paas_remotehost" setzen
+#### Hostname, IP und Key-Verknüpfung setzen
 
-sqlite3 /<pfad_zu_deinem_Projekt>/db.sqlite3
-
-```sql
-UPDATE "main"."paas_remotehost" SET "hostname" = <hostname_zielserver>, "ip_address" = <ip_zielserver>, "ssh_key_path"='<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key' WHERE "id"=1;
-```
-
-Die Pflege der Zielserver kann auch über die Admin-Oberfläche --> Rubrik "PAAS" --> "Target Hosts" durchgeführt werden.
+Die Pflege erfolgt über die Admin-Web-Oberfläche --> Rubrik "PAAS" --> "Target Hosts".
 
 
 
