@@ -219,7 +219,9 @@ def _handle_deploy(request, form):
 
     # 5) expires_at berechnen
     expires_at = None
-    if duration is not None:
+    print('duration:')
+    print(duration)
+    if duration is not None and duration != 'None':
         duration_delta = parse_duration(duration)
         expires_at = timezone.now() + duration_delta
 
