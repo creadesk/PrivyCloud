@@ -148,20 +148,7 @@ class Command(BaseCommand):
                 '1',
                 '8080',
                 '0'
-              ),
-              (
-                '7',
-                'owncloud',
-                'owncloud',
-                'owncloud/server:latest',
-                'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin',
-                '1',
-                '8080',
-                '1',
-                '1',
-                '8080',
-                '0'
-              ),
+              ),              
               (
                 '10',
                 'postgres_pgadmin4',
