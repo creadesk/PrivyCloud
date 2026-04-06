@@ -56,36 +56,164 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         paas_appdefinition_sql = [
             """
-            INSERT INTO "main"."paas_appdefinition"
-            ("id", "name", "display_name", "docker_image", "description",
-             "default_duration", "app_port_intern_web", "app_port_intern_api",
-             "hiddenservice_port_api", "hiddenservice_port_web", "use_deploy_user")
+            INSERT INTO
+              "main"."paas_appdefinition" (
+                "id",
+                "name",
+                "display_name",
+                "docker_image",
+                "description",
+                "default_duration",
+                "app_port_intern_web",
+                "app_port_intern_api",
+                "hiddenservice_port_api",
+                "hiddenservice_port_web",
+                "use_deploy_user"
+              )
             VALUES
-            ('1', 'it-tools', 'it-tools',
-             'ghcr.io/corentinth/it-tools:latest',
-             'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.',
-             '1', '80', '1', '1', '80', '0'),
-            ('2', 'uptime-kuma', 'uptime-kuma',
-             'louislam/uptime-kuma:latest',
-             'Ein einfaches und nützliches Monitoring‑Tool.',
-             '1', '3001', '1', '1', '3001', '0'),
-            ('3', 'redis', 'redis',
-             'redis/redis-stack:latest',
-             'In-Memory‑Datenbank für schnelle Lese‑/Schreibzugriffe. Initiales Passwort: mypassword',
-             '1', '8001', '6379', '6379', '8001', '0'),
-            ('4', 'simplex-smp', 'simplex-smp',
-             'simplexchat/smp-server:latest',
-             'Ein SimpleX Messaging Protocol-Server.',
-             '1', '1', '5223', '5223', '1', '1'),
-            ('5', 'simplex-xftp', 'simplex-xftp',
-             'simplexchat/xftp-server:latest',
-             'SimpleX XFTP Server ist ein Dateiübertragungsprotokoll zum Schutz von Metadaten, das auf den Prinzipien des SimpleX Messaging Protocol (SMP) basiert.',
-             '1', '1', '443', '443', '1', '1'),
-            ('6', 'owncloud', 'owncloud',
-             'owncloud/server:latest',
-             'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin',
-             '1', '8080', '1', '1', '8080', '0')
-            ON CONFLICT ("id") DO NOTHING;
+              (
+                '1',
+                'it-tools',
+                'it-tools',
+                'ghcr.io/corentinth/it-tools:latest',
+                'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.',
+                '1',
+                '80',
+                '1',
+                '1',
+                '80',
+                '0'
+              ),
+              (
+                '2',
+                'uptime-kuma',
+                'uptime-kuma',
+                'louislam/uptime-kuma:latest',
+                'Ein einfaches und nützliches Monitoring‑Tool.',
+                '1',
+                '3001',
+                '1',
+                '1',
+                '3001',
+                '0'
+              ),
+              (
+                '3',
+                'redis',
+                'redis',
+                'redis/redis-stack:latest',
+                'In-Memory‑Datenbank für schnelle Lese‑/Schreibzugriffe. Initiales Passwort: mypassword',
+                '1',
+                '8001',
+                '6379',
+                '6379',
+                '8001',
+                '0'
+              ),
+              (
+                '4',
+                'simplex-smp',
+                'simplex-smp',
+                'simplexchat/smp-server:latest',
+                'Ein SimpleX Messaging Protocol-Server.',
+                '1',
+                '1',
+                '5223',
+                '5223',
+                '1',
+                '1'
+              ),
+              (
+                '5',
+                'simplex-xftp',
+                'simplex-xftp',
+                'simplexchat/xftp-server:latest',
+                'SimpleX XFTP Server ist ein Dateiübertragungsprotokoll zum Schutz von Metadaten, das auf den Prinzipien des SimpleX Messaging Protocol (SMP) basiert.',
+                '1',
+                '1',
+                '443',
+                '443',
+                '1',
+                '1'
+              ),
+              (
+                '6',
+                'owncloud',
+                'owncloud',
+                'owncloud/server:latest',
+                'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin',
+                '1',
+                '8080',
+                '1',
+                '1',
+                '8080',
+                '0'
+              ),
+              (
+                '7',
+                'owncloud',
+                'owncloud',
+                'owncloud/server:latest',
+                'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin',
+                '1',
+                '8080',
+                '1',
+                '1',
+                '8080',
+                '0'
+              ),
+              (
+                '10',
+                'postgres_pgadmin4',
+                'postgres_pgadmin4',
+                'rchaput/postgres_pgadmin4:latest',
+                'Postgres Datenbank mit pgadmin4 Frontend',
+                '1',
+                '5050',
+                '1',
+                '5050',
+                '1',
+                '0'
+              ),
+              (
+                '11',
+                'jellyfin',
+                'jellyfin',
+                'jellyfin/jellyfin',
+                'Ein freies Mediensystem, für die Verwaltung und das Streamen von Medien.',
+                '1',
+                '8096',
+                '7359',
+                '8096',
+                '7359',
+                '1'
+              ),
+              (
+                '13',
+                'i2p',
+                'i2p',
+                'geti2p/i2p',
+                'Ein anonymes Overlay-Netzwerk – ein Netzwerk innerhalb eines Netzwerks.',
+                '1',
+                '7657',
+                '4444',
+                '7657',
+                '4444',
+                '1'
+              ),
+              (
+                '14',
+                'nostr-rs-relay',
+                'nostr-rs-relay',
+                'scsibug/nostr-rs-relay:latest',
+                'Ein Nostr-Server („Notes and Other Stuff Transmitted by Relays“), der Daten für Benutzer speichert und weiterleitet.',
+                '1',
+                '8080',
+                '1',
+                '8080',
+                '1',
+                '1'
+              ) ON CONFLICT ("id") DO NOTHING;
             """
         ]
 
@@ -101,7 +229,8 @@ class Command(BaseCommand):
             ('2', 'ADDR', '<onion_address>', '5', '0', '0'),
             ('3', 'QUOTA', '1gb', '5', '0', '0'),
             ('4', 'REDIS_ARGS', '"--requirepass mypassword"', '3', '0', '0'),
-            ('5', 'OWNCLOUD_TRUSTED_DOMAINS', '<onion_address>', '6', '0', '0')
+            ('5', 'OWNCLOUD_TRUSTED_DOMAINS', '<onion_address>', '6', '0', '0'),
+            ('9', 'JVM_XMX', '512m', '13', '1', '1')
             ON CONFLICT ("id") DO NOTHING;
             """
         ]
@@ -118,7 +247,15 @@ class Command(BaseCommand):
             ('2', 'simplex/smp/logs', '/var/opt/simplex:z', '4'),
             ('3', 'simplex/xftp/config', '/etc/opt/simplex-xftp:z', '5'),
             ('4', 'simplex/xftp/logs', '/var/opt/simplex-xftp:z', '5'),
-            ('5', 'simplex/xftp/files', '/srv/xftp:z', '5')
+            ('5', 'simplex/xftp/files', '/srv/xftp:z', '5'),
+            ('8', 'postgres-pgadmin4-data', '/root/data', '10'),
+            ('9', 'jellyfin-config', '/config', '11'),
+            ('10', 'jellyfin-cache', '/cache', '11'),
+            ('11', 'jellyfin-media', '/media', '11'),
+            ('13', 'i2pconfig', '/i2p/.i2p', '13'),
+            ('14', 'i2ptorrents', '/i2psnark', '13'),
+            ('15', 'nostr_rs_relay/config.toml', '/usr/src/app/config.toml', '14'),
+            ('16', 'nostr_rs_relay/data', '/usr/src/app/db', '14')
             ON CONFLICT ("id") DO NOTHING;
             """
         ]

@@ -21,6 +21,8 @@ from typing import Tuple
 import contextlib
 from typing import Generator
 
+from typing import Optional
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,8 +149,10 @@ def _run_cmd(ssh, cmd: str):
     *and* the LocalSSH helper used for localhost.
     Returns: (exit_code: int, stdout: str, stderr: str)
     """
+    #print(f'cmd in _run_cmd: {cmd}')
     # Execute the command once
     result = ssh.exec_command(cmd)
+    #print(f'result in _run_cmd: {result}')
 
     # ----------------- Detect local return (int, str, str) -----------------
     # Paramiko returns a tuple of ChannelFile objects → first element is NOT int
@@ -370,10 +374,115 @@ def _cleanup_provision(provision: ProvisionedApp):
         #])
 
 
+def append_line_via_sftp(
+    ssh,
+    file_path: str,
+    line: str,
+    *,
+    encoding: str = "utf-8",
+    max_retries: int = 3,
+    retry_delay: float = 2.0,
+    log_fn: Optional[callable] = None
+) -> bool:
+    """
+    Append *line* to a file located at *file_path* on the remote host
+    via SFTP. The function will:
+
+        1. Ensure the file exists (create if missing).
+        2. Append the line (adds a trailing newline if absent).
+        3. Verify that the line is indeed present after writing.
+        4. Retry the whole operation on transient failures.
+
+    Parameters
+    ----------
+    ssh : paramiko.SSHClient
+        An established SSH connection.
+    file_path : str
+        Remote path to the target file.
+    line : str
+        Text to append.
+    encoding : str, optional
+        Text encoding used for the remote file (default "utf-8").
+    max_retries : int, optional
+        How many times to retry on transient errors.
+    retry_delay : float, optional
+        Seconds to wait between retries.
+    log_fn : callable, optional
+        Custom logging function accepting a single string argument.
+        Defaults to a simple `print`.
+
+    Returns
+    -------
+    bool
+        ``True`` if the line was appended and verified, otherwise an
+        exception is raised.
+    """
+    if log_fn is None:
+        log_fn = print
+
+    # Make sure we always end the line with a newline
+    if not line.endswith("\n"):
+        line += "\n"
+
+    for attempt in range(1, max_retries + 1):
+        sftp = None
+        try:
+            sftp = ssh.open_sftp()
+
+            # ---- 1. Prüfen / Anlegen der Datei  ----
+            try:
+                sftp.stat(file_path)
+            except FileNotFoundError:  # file does not exist
+                log_fn(f"[SFTP] Datei {file_path} nicht vorhanden – erstelle sie.")
+                with sftp.file(file_path, "w", -1):
+                    pass  # create an empty file
+
+            # ---- 2. Zeile anhängen  ----
+            with sftp.file(file_path, "a", -1) as f:
+                f.write(line.encode(encoding))
+                log_fn(f"[SFTP APPEND] Zeile angehängt: {line.rstrip()}")
+
+            # ---- 3. Verifikation (lesen & prüfen) ----
+            with sftp.file(file_path, "r", -1) as f:
+                content = f.read().decode(encoding)
+
+            if line.rstrip() not in [l.strip() for l in content.splitlines()]:
+                raise RuntimeError(
+                    "Nach dem Append konnte die Zeile nicht im Zielfile gefunden werden."
+                )
+
+            # Alles in Ordnung – Rückgabe
+            log_fn(f"[SFTP] Erfolgreich: Zeile ist nun in {file_path} enthalten.")
+            return True
+
+        except Exception as exc:
+            # Falls wir hier sind, hat etwas schiefgegangen.
+            log_fn(
+                f"[SFTP] Versuch {attempt}/{max_retries} fehlgeschlagen: {exc!s}"
+            )
+            if attempt == max_retries:
+                # Nach max. Versuchen wirklich abbrechen
+                raise RuntimeError(
+                    f"SFTP append failed after {max_retries} attempts: {exc!s}"
+                ) from exc
+            # Optionaler Delay zwischen den Versuchen
+            time.sleep(retry_delay)
+
+        finally:
+            # SFTP-Verbindung immer sauber schließen
+            if sftp is not None:
+                try:
+                    sftp.close()
+                except Exception:
+                    pass  # nichts weiter zu tun
+
+    # Der Code sollte hier nie ankommen – aber type‑checkers brauchen es.
+    return False
+
 # ----------------------------------------------------------------------
 # Anpassung Config eines Containers
 # ----------------------------------------------------------------------
-def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: ProvisionedApp):
+def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: ProvisionedApp, onion_addr):
     """
     Führt alle Config‑Patch‑Anweisungen aus, die für die App definiert sind.
     """
@@ -404,8 +513,7 @@ def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: Pro
                 f"sed -i \"s/{patch.pattern}/#&/\" {file_path}"
             )
             #Bsp: sed -i 's/^\(https\|cert\|key\):/#&/' /home/deploy/testuser16-simplex-smp-1763212099/simplex/smp/config/smp-server.ini
-            print(cmd)
-
+            print(f"[PATCH COMMENT] {cmd}")
             exit_code, out, err = _run_cmd(ssh, cmd)
             if exit_code:
                 raise RuntimeError(f"Patch comment failed: {err}")
@@ -421,6 +529,7 @@ def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: Pro
             cmd = (
                 f"sed -i \"s/^{patch.pattern}/{replacement_escaped}/\" {file_path}"
             )
+            print(f"[PATCH REPLACE] {cmd}")
             exit_code, out, err = _run_cmd(ssh, cmd)
             if exit_code:
                 raise RuntimeError(f"Patch replace failed: {err}")
@@ -428,9 +537,37 @@ def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: Pro
         elif patch.action == ConfigPatch.ACTION_DELETE:
             # delete lines that match the pattern
             cmd = f'sed -i "/^{patch.pattern}/d" {file_path}'
+            print(f"[PATCH DELETE] {cmd}")
             exit_code, out, err = _run_cmd(ssh, cmd)
             if exit_code:
                 raise RuntimeError(f"Patch delete failed: {err}")
+
+        elif patch.action == ConfigPatch.ACTION_ADD:
+            # Zeile hinzufügen:  sed -i '/pattern/a replacement'
+            # (add nach dem ersten Treffer von pattern)
+            if not patch.replacement:
+                raise ValueError(f"Patch ADD benötigt ein replacement‑Feld (Patch ID {patch.id}).")
+            replacement_substituted = patch.replacement.replace(
+                "<onion_address>", onion_addr
+            )
+
+            print("Warte 60 Sekunden …")
+            time.sleep(60)  #wartezeit erforderlich, um überschreiben durch container anwendung zu verhindern
+
+            #append_line_via_sftp(ssh, file_path, replacement_substituted) #sftp alternative
+
+            cmd = f'printf "%s\\n" "{replacement_substituted}" >> {file_path}'  #ssh alternative
+            print(f"[PATCH ADD] {cmd}")
+            exit_code, out, err = _run_cmd(ssh, cmd)
+            if exit_code:
+                raise RuntimeError(f"Patch add failed: {err}")
+
+            # Container neu starten
+            cmd = f'docker restart {provision.container_name}'
+            print(f"[Container neu starten:] {cmd}")
+            exit_code, out, err = _run_cmd(ssh, cmd)
+            if exit_code:
+                raise RuntimeError(f"Patch add failed: {err}")
 
         else:
             raise ValueError(f"Unbekannte Patch‑Aktion: {patch.action}")
@@ -604,7 +741,7 @@ WantedBy=default.target
                 raise RuntimeError("Kein Container‑ID zurückgegeben")
 
             # Jetzt die Config‑Patches anwenden
-            _apply_patches(ssh, app_def, host, provision)
+            _apply_patches(ssh, app_def, host, provision, onion_addr)
 
             # Basis‑Daten persistieren
             provision.container_id = container_id

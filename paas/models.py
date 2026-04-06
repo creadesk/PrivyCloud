@@ -205,11 +205,13 @@ class ConfigPatch(models.Model):
     ACTION_COMMENT = 'comment'
     ACTION_REPLACE = 'replace'
     ACTION_DELETE = 'delete'
+    ACTION_ADD = 'add'
 
     ACTION_CHOICES = [
         (ACTION_COMMENT, 'Zeile auskommentieren'),
         (ACTION_REPLACE, 'Zeile ersetzen'),
         (ACTION_DELETE, 'Zeile löschen'),
+        (ACTION_ADD, 'Zeile hinzufügen'),
     ]
 
     app = models.ForeignKey(
@@ -243,7 +245,7 @@ class ConfigPatch(models.Model):
         max_length=512,
         blank=True,
         null=True,
-        help_text='Nur für “replace” nötig – der neue Zeilentext (ohne Zeilenumbruch)'
+        help_text='Nur für “replace” und "add" nötig – der neue Zeilentext (ohne Zeilenumbruch)'
     )
 
     class Meta:
