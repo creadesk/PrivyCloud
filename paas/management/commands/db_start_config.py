@@ -132,7 +132,7 @@ class Command(BaseCommand):
 
                 ('18','signal-cli-rest-api','signal-cli-rest-api',
                  'bbernhard/signal-cli-rest-api',
-                 'Eine kleiner Wrapper für das Befehlszeilentool „signal-cli“.'''\nLink zur Registrierung als zweites Gerät:\nhttp://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api',\n                 '1','8080','1','8080','1','0','0'),
+                 'Eine kleiner Wrapper für das Befehlszeilentool „signal-cli“. Link zur Registrierung als zweites Gerät: http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api','1','8080','1','8080','1','0','0'),
 
                 ('20','wordpress','wordpress',
                  'wordpress',
