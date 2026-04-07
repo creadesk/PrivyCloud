@@ -17,6 +17,7 @@ class AppDefinition(models.Model):
   hiddenservice_port_web = models.PositiveIntegerField(default=80)  # Web-Port für onion-service
   hiddenservice_port_api = models.PositiveIntegerField(default=1)  # API-Port für onion-service
   use_deploy_user = models.BooleanField(default=False, help_text="Container mit User {uid}:{gid} starten")
+  no_hidden_service = models.BooleanField(default=False, help_text="ohne Hidden-Service")
 
   class Meta:
       ordering = ['display_name']
@@ -75,6 +76,7 @@ class ProvisionedApp(models.Model):
       help_text=_('Zeitpunkt, zu dem die Bereitstellung endet. `None` = kein Limit.'),
   )
   port = models.PositiveIntegerField(blank=True, null=True)
+  port2 = models.PositiveIntegerField(blank=True, null=True)
   # Status: pending, running, finished, error, deleted
   status = models.CharField(max_length=32, default='pending')
   log = models.TextField(blank=True, null=True)

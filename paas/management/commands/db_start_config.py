@@ -56,151 +56,25 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         paas_appdefinition_sql = [
             """
-            INSERT INTO
-              "main"."paas_appdefinition" (
-                "id",
-                "name",
-                "display_name",
-                "docker_image",
-                "description",
-                "default_duration",
-                "app_port_intern_web",
-                "app_port_intern_api",
-                "hiddenservice_port_api",
-                "hiddenservice_port_web",
-                "use_deploy_user"
-              )
-            VALUES
-              (
-                '1',
-                'it-tools',
-                'it-tools',
-                'ghcr.io/corentinth/it-tools:latest',
-                'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.',
-                '1',
-                '80',
-                '1',
-                '1',
-                '80',
-                '0'
-              ),
-              (
-                '2',
-                'uptime-kuma',
-                'uptime-kuma',
-                'louislam/uptime-kuma:latest',
-                'Ein einfaches und nützliches Monitoring‑Tool.',
-                '1',
-                '3001',
-                '1',
-                '1',
-                '3001',
-                '0'
-              ),
-              (
-                '3',
-                'redis',
-                'redis',
-                'redis/redis-stack:latest',
-                'In-Memory‑Datenbank für schnelle Lese‑/Schreibzugriffe. Initiales Passwort: mypassword',
-                '1',
-                '8001',
-                '6379',
-                '6379',
-                '8001',
-                '0'
-              ),
-              (
-                '4',
-                'simplex-smp',
-                'simplex-smp',
-                'simplexchat/smp-server:latest',
-                'Ein SimpleX Messaging Protocol-Server.',
-                '1',
-                '1',
-                '5223',
-                '5223',
-                '1',
-                '1'
-              ),
-              (
-                '5',
-                'simplex-xftp',
-                'simplex-xftp',
-                'simplexchat/xftp-server:latest',
-                'SimpleX XFTP Server ist ein Dateiübertragungsprotokoll zum Schutz von Metadaten, das auf den Prinzipien des SimpleX Messaging Protocol (SMP) basiert.',
-                '1',
-                '1',
-                '443',
-                '443',
-                '1',
-                '1'
-              ),
-              (
-                '6',
-                'owncloud',
-                'owncloud',
-                'owncloud/server:latest',
-                'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin',
-                '1',
-                '8080',
-                '1',
-                '1',
-                '8080',
-                '0'
-              ),              
-              (
-                '10',
-                'postgres_pgadmin4',
-                'postgres_pgadmin4',
-                'rchaput/postgres_pgadmin4:latest',
-                'Postgres Datenbank mit pgadmin4 Frontend',
-                '1',
-                '5050',
-                '1',
-                '5050',
-                '1',
-                '0'
-              ),
-              (
-                '11',
-                'jellyfin',
-                'jellyfin',
-                'jellyfin/jellyfin',
-                'Ein freies Mediensystem, für die Verwaltung und das Streamen von Medien.',
-                '1',
-                '8096',
-                '7359',
-                '8096',
-                '7359',
-                '1'
-              ),
-              (
-                '13',
-                'i2p',
-                'i2p',
-                'geti2p/i2p',
-                'Ein anonymes Overlay-Netzwerk – ein Netzwerk innerhalb eines Netzwerks.',
-                '1',
-                '7657',
-                '4444',
-                '7657',
-                '4444',
-                '1'
-              ),
-              (
-                '14',
-                'nostr-rs-relay',
-                'nostr-rs-relay',
-                'scsibug/nostr-rs-relay:latest',
-                'Ein Nostr-Server („Notes and Other Stuff Transmitted by Relays“), der Daten für Benutzer speichert und weiterleitet.',
-                '1',
-                '8080',
-                '1',
-                '8080',
-                '1',
-                '1'
-              ) ON CONFLICT ("id") DO NOTHING;
+            INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('1', 'it-tools', 'it-tools', 'ghcr.io/corentinth/it-tools:latest', 'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.', '1', '80', '1', '80', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('2', 'uptime-kuma', 'uptime-kuma', 'louislam/uptime-kuma:latest', 'Ein einfaches und nützliches Monitoring‑Tool.', '1', '3001', '1', '3001', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('3', 'redis', 'redis', 'redis/redis-stack:latest', 'In-Memory‑Datenbank für schnelle Lese‑/Schreibzugriffe. Initiales Passwort: mypassword', '1', '8001', '6379', '8001', '6379', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('4', 'simplex-smp', 'simplex-smp', 'simplexchat/smp-server:latest', 'Ein SimpleX Messaging Protocol-Server.', '1', '1', '5223', '1', '5223', '1', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('5', 'simplex-xftp', 'simplex-xftp', 'simplexchat/xftp-server:latest', 'SimpleX XFTP Server ist ein Dateiübertragungsprotokoll zum Schutz von Metadaten, das auf den Prinzipien des SimpleX Messaging Protocol (SMP) basiert.', '1', '1', '443', '1', '443', '1', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('6', 'owncloud', 'owncloud', 'owncloud/server:latest', 'Datunschutzorientiertes Kooperationstool. Initiale Anmeldedaten: User: admin / PW: admin', '1', '8080', '1', '8080', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('10', 'postgres_pgadmin4', 'postgres_pgadmin4', 'rchaput/postgres_pgadmin4:latest', 'Postgres Datenbank mit pgadmin4 Frontend', '1', '5050', '1', '5050', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('11', 'jellyfin', 'jellyfin', 'jellyfin/jellyfin', 'Ein freies Mediensystem, für die Verwaltung und das Streamen von Medien.', '1', '8096', '7359', '8096', '7359', '1', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('13', 'i2p', 'i2p', 'geti2p/i2p', 'Ein anonymes Overlay-Netzwerk – ein Netzwerk innerhalb eines Netzwerks.', '1', '7657', '4444', '7657', '4444', '1', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('14', 'nostr-rs-relay', 'nostr-rs-relay', 'scsibug/nostr-rs-relay:latest', 'Ein Nostr-Server („Notes and Other Stuff Transmitted by Relays“), der Daten für Benutzer speichert und weiterleitet.', '1', '8080', '1', '8080', '1', '1', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('16', 'snort', 'snort', 'docker.io/dockurr/snort', 'Eine Benutzeroberfläche für das Nostr-Protokoll.', '1', '8080', '1', '80', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('17', 'glances', 'glances', 'nicolargo/glances:latest-full', 'Monitoring Tool für Host und Container Überwachung.', '1', '61208', '1', '61208', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('18', 'signal-cli-rest-api', 'signal-cli-rest-api', 'bbernhard/signal-cli-rest-api', 'Eine kleiner Wrapper für das Befehlszeilentool „signal-cli“.
+
+Link zur Registrierung als zweites Gerät:
+http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', '1', '8080', '1', '8080', '1', '0', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('20', 'wordpress', 'wordpress', 'wordpress', 'Ein leistungsfähiges Content-Management-System.', '1', '80', '1', '80', '1', '1', '0');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('21', 'mysql', 'mysql', 'mysql:latest', 'Eine open source Datenbank.', '1', '1', '3306', '1', '1', '1', '1');
+INSERT INTO "main"."paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES ('22', 'phpmyadmin', 'phpmyadmin', 'phpmyadmin', 'Ein kostenloses, in PHP geschriebenes Software-Tool, das für die Verwaltung von MySQL über das Internet gedacht ist.', '1', '80', '1', '80', '1', '0', '0');
             """
         ]
 
@@ -209,16 +83,21 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         paas_appenvvarperapp_sql = [
             """
-            INSERT INTO "main"."paas_appenvvarperapp"
-            ("id", "key", "value", "app_id", "optional", "editable")
-            VALUES
-            ('1', 'ADDR', '<onion_address>', '4', '0', '0'),
-            ('2', 'ADDR', '<onion_address>', '5', '0', '0'),
-            ('3', 'QUOTA', '1gb', '5', '0', '0'),
-            ('4', 'REDIS_ARGS', '"--requirepass mypassword"', '3', '0', '0'),
-            ('5', 'OWNCLOUD_TRUSTED_DOMAINS', '<onion_address>', '6', '0', '0'),
-            ('9', 'JVM_XMX', '512m', '13', '1', '1')
-            ON CONFLICT ("id") DO NOTHING;
+            INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('1', 'ADDR', '<onion_address>', '0', '0', '4');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('2', 'ADDR', '<onion_address>', '0', '0', '5');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('3', 'QUOTA', '1gb', '0', '0', '5');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('4', 'REDIS_ARGS', '"--requirepass mypassword"', '0', '0', '3');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('5', 'OWNCLOUD_TRUSTED_DOMAINS', '<onion_address>', '0', '0', '6');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('9', 'JVM_XMX', '512m', '1', '1', '13');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('11', 'TZ', '"${TZ}"', '0', '0', '17');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('12', 'GLANCES_OPT', '"-w"', '0', '0', '17');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('13', 'MODE', 'native', '0', '0', '18');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('22', 'MYSQL_ROOT_PASSWORD', '<db_root_password>', '0', '1', '21');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('23', 'MYSQL_DATABASE', '<db_name>', '1', '1', '21');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('24', 'MYSQL_USER', '<db_user>', '1', '1', '21');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('25', 'MYSQL_PASSWORD', '<db_user_password>', '1', '1', '21');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('26', 'PMA_HOST', '<db_host_ip>', '1', '1', '22');
+INSERT INTO "main"."paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES ('27', 'PMA_PORT', '<db_port>', '1', '1', '22');
             """
         ]
 
@@ -227,23 +106,22 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         paas_appvolumeperapp_sql = [
             """
-            INSERT INTO "main"."paas_appvolumeperapp"
-            ("id", "host_path", "container_path", "app_id")
-            VALUES
-            ('1', 'simplex/smp/config', '/etc/opt/simplex:z', '4'),
-            ('2', 'simplex/smp/logs', '/var/opt/simplex:z', '4'),
-            ('3', 'simplex/xftp/config', '/etc/opt/simplex-xftp:z', '5'),
-            ('4', 'simplex/xftp/logs', '/var/opt/simplex-xftp:z', '5'),
-            ('5', 'simplex/xftp/files', '/srv/xftp:z', '5'),
-            ('8', 'postgres-pgadmin4-data', '/root/data', '10'),
-            ('9', 'jellyfin-config', '/config', '11'),
-            ('10', 'jellyfin-cache', '/cache', '11'),
-            ('11', 'jellyfin-media', '/media', '11'),
-            ('13', 'i2pconfig', '/i2p/.i2p', '13'),
-            ('14', 'i2ptorrents', '/i2psnark', '13'),
-            ('15', 'nostr_rs_relay/config.toml', '/usr/src/app/config.toml', '14'),
-            ('16', 'nostr_rs_relay/data', '/usr/src/app/db', '14')
-            ON CONFLICT ("id") DO NOTHING;
+            INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('1', 'simplex/smp/config', '/etc/opt/simplex:z', '4');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('2', 'simplex/smp/logs', '/var/opt/simplex:z', '4');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('3', 'simplex/xftp/config', '/etc/opt/simplex-xftp:z', '5');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('4', 'simplex/xftp/logs', '/var/opt/simplex-xftp:z', '5');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('5', 'simplex/xftp/files', '/srv/xftp:z', '5');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('8', 'postgres-pgadmin4-data', '/root/data', '10');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('9', 'jellyfin-config', '/config', '11');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('10', 'jellyfin-cache', '/cache', '11');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('11', 'jellyfin-media', '/media', '11');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('13', 'i2pconfig', '/i2p/.i2p', '13');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('14', 'i2ptorrents', '/i2psnark', '13');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('15', 'nostr_rs_relay/config.toml', '/usr/src/app/config.toml', '14');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('16', 'nostr_rs_relay/data', '/usr/src/app/db', '14');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('17', 'signal-api-data', '/home/.local/share/signal-cli', '18');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('19', 'wordpress-data', '/var/www/html', '20');
+INSERT INTO "main"."paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES ('20', 'mysql-data', '/var/lib/mysql', '21');
             """
         ]
 
@@ -252,11 +130,8 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         paas_configpatch_sql = [
             """
-            INSERT INTO "main"."paas_configpatch"
-            ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id")
-            VALUES
-            ('1', 'simplex/smp/config/smp-server.ini', '^(https|cert|key):', 'comment', '', '4', '1')
-            ON CONFLICT ("id") DO NOTHING;
+            INSERT INTO "main"."paas_configpatch" ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id") VALUES ('1', 'simplex/smp/config/smp-server.ini', '^\(https\|cert\|key\):', 'comment', '', '4', '1');
+INSERT INTO "main"."paas_configpatch" ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id") VALUES ('2', 'i2pconfig/router.config', '^routerconsole', 'add', 'routerconsole.allowedHosts=<onion_address>', '13', '13');
             """
         ]
 
@@ -265,14 +140,8 @@ class Command(BaseCommand):
         # ------------------------------------------------------------------
         paas_remotehost_sql = [
             """
-            INSERT INTO "main"."paas_remotehost"
-            ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path", "current_load", "nur_superuser")
-            VALUES
-            ('1', '<dein_zielserver_hostname>', '<deine_zielserver_ip>', 'deploy',
-             '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key', '0.0', '0'),
-            ('2', '127.0.0.1', '127.0.0.1', 'deploy',
-             '<pfad_in_dein_homeverzeichnis>/.ssh/deploy_key_local', '0.0', '1')
-            ON CONFLICT ("id") DO NOTHING;
+            INSERT INTO "main"."paas_remotehost" ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path", "current_load", "nur_superuser") VALUES ('1', '192.168.1.113', '192.168.1.113', 'deploy', '/home/user/.ssh/deploy_key', '10.0', '0');
+INSERT INTO "main"."paas_remotehost" ("id", "hostname", "ip_address", "ssh_user", "ssh_key_path", "current_load", "nur_superuser") VALUES ('2', '127.0.0.1', '127.0.0.1', 'deploy', '/home/user/.ssh/deploy_key_local', '10.0', '1');
             """
         ]
 

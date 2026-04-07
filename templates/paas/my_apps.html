@@ -32,6 +32,8 @@
                   {% endif %}
                   <th>Web</th>
                   <th>API</th>
+                  <th>Host Port1</th>
+                  <th>Host Port2</th>
                   <th>Startzeit(UTC)</th>
                   <th>Verfallszeit(UTC)</th>
                   <th>Status</th>
@@ -47,15 +49,27 @@
                         <td>{{ p.host }}</td>
                       {% endif %}
                       <!-- Web-Adresse, wenn vorhanden -->
-                      {% if p.app.app_port_intern_web != 1 %}
+                      {% if p.app.app_port_intern_web != 1 and p.onion_address %}
                         <td><a href="{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Link</a></td>
                       {% else %}
                           <td>X</td>
                       {% endif %}
 
                       <!-- API-Adresse, wenn vorhanden -->
-                      {% if p.app.app_port_intern_api != 1 %}
+                      {% if p.app.app_port_intern_api != 1 and p.onion_address %}
                           <td><a href="{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Link</a></td>
+                      {% else %}
+                          <td>X</td>
+                      {% endif %}
+
+                      {% if p.app.app_port_intern_web != 1 and p.port %}
+                          <td>{{ p.port }}</td>
+                      {% else %}
+                          <td>X</td>
+                      {% endif %}
+
+                      {% if p.app.app_port_intern_api != 1 and p.port2 %}
+                          <td>{{ p.port2 }}</td>
                       {% else %}
                           <td>X</td>
                       {% endif %}

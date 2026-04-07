@@ -647,20 +647,22 @@ def deploy_app_task(self, provision_id: int, env_vars=None,**kwargs):
             tor_data_dir = f"/home/{host.ssh_user}/{provision.container_name}/"
             hidden_dir = f"{tor_data_dir}.tor_hidden_{provision.container_name}"
             _run_cmd(ssh, f"mkdir -p {hidden_dir} && chmod 700 {hidden_dir}")
+            onion_addr = ""
+            if not app_def.no_hidden_service:
 
-            DEFAULT_SOCKS_PORT = 9050
-            socks_port = DEFAULT_SOCKS_PORT if not _is_port_in_use(ssh, DEFAULT_SOCKS_PORT) else _get_free_port(ssh)
+                DEFAULT_SOCKS_PORT = 9050
+                socks_port = DEFAULT_SOCKS_PORT if not _is_port_in_use(ssh, DEFAULT_SOCKS_PORT) else _get_free_port(ssh)
 
-            torrc_path = f"{tor_data_dir}.torrc_{provision.container_name}"
-            torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api)
-            print("=== erzeugte torrc ===")
-            print(torrc_content)
-            with ssh.open_sftp().open(torrc_path, "w") as f:
-                f.write(torrc_content)
+                torrc_path = f"{tor_data_dir}.torrc_{provision.container_name}"
+                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api)
+                print("=== erzeugte torrc ===")
+                print(torrc_content)
+                with ssh.open_sftp().open(torrc_path, "w") as f:
+                    f.write(torrc_content)
 
-            # user‑systemd‑Unit für tor-instanz erzeugen
-            unit_name = f"tor-hidden-service@{provision.container_name}.service"
-            unit_content = f"""\
+                # user‑systemd‑Unit für tor-instanz erzeugen
+                unit_name = f"tor-hidden-service@{provision.container_name}.service"
+                unit_content = f"""\
 [Unit]
 Description=Tor Hidden Service for {provision.container_name}
 After=network.target
@@ -676,14 +678,14 @@ StandardError=inherit
 WantedBy=default.target
 """
 
-            _write_systemd_unit(ssh, unit_name, unit_content)
+                _write_systemd_unit(ssh, unit_name, unit_content)
 
-            if not _wait_for_file(ssh, f"{hidden_dir}/hostname", timeout=120):
-                raise RuntimeError("Tor hat hostname nicht erzeugt")
+                if not _wait_for_file(ssh, f"{hidden_dir}/hostname", timeout=120):
+                    raise RuntimeError("Tor hat hostname nicht erzeugt")
 
-            _, onion_addr, _ = _run_cmd(ssh, f"cat {hidden_dir}/hostname")
-            if not onion_addr:
-                raise RuntimeError("Keine Onion‑Adresse gefunden")
+                _, onion_addr, _ = _run_cmd(ssh, f"cat {hidden_dir}/hostname")
+                if not onion_addr:
+                    raise RuntimeError("Keine Onion‑Adresse gefunden")
 
 
             # Docker‑Run
@@ -746,9 +748,10 @@ WantedBy=default.target
             # Basis‑Daten persistieren
             provision.container_id = container_id
             provision.port = free_port_web
+            provision.port2 = free_port_api
             provision.status = "running"
             provision.log = f"Container {container_id} läuft auf Port {free_port_web}"
-            provision.save(update_fields=["container_id", "port", "status", "log"])
+            provision.save(update_fields=["container_id", "port", "port2", "status", "log"])
 
             provision.onion_address = onion_addr
             provision.log += f"\nOnion‑Service erstellt: http://{onion_addr}:80"

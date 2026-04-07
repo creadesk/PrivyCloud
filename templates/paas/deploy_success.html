@@ -17,8 +17,10 @@
   <h1>Deployment gestartet!</h1>
 
   <div>
-      Deine App <strong>{{ provision.app.display_name }}</strong> wird jetzt auf <strong>{{ provision.onion_address }}</strong> gestartet.<br>
-      Es kann ein paar Minuten dauern, bis die Adressen im Tor-Netzwerk erreichbar wird.
+      {% if provision.app.no_hidden_service == false %}
+          Deine App <strong>{{ provision.app.display_name }}</strong> wird jetzt auf <strong>{{ provision.onion_address }}</strong> gestartet.<br>
+          Es kann ein paar Minuten dauern, bis die Adressen im Tor-Netzwerk erreichbar wird.
+      {% endif %}
   </div>
 
   <dl>
@@ -30,7 +32,7 @@
 
        <!-- Web-Adresse, wenn vorhanden -->
       <dt>Adresse(Web)</dt>
-      {% if provision.app.app_port_intern_web != 1 %}
+      {% if provision.app.app_port_intern_web != 1 and provision.onion_address != "" %}
         <dd><a href="{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}">{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}</a></dd>
       {% else %}
           <dd>X</dd>
@@ -38,8 +40,24 @@
 
       <!-- API-Adresse, wenn vorhanden -->
       <dt>Adresse(API)</dt>
-      {% if provision.app.app_port_intern_api != 1 %}
+      {% if provision.app.app_port_intern_api != 1 and provision.onion_address != "" %}
           <dd>{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_api }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <!-- Host Port 1 -->
+      <dt>Host Port 1</dt>
+      {% if provision.app.app_port_intern_web != 1 and provision.port %}
+        <dd>{{ provision.port }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <!-- Host Port 2 -->
+      <dt>Host Port 2</dt>
+      {% if provision.app.app_port_intern_api != 1 and provision.port2 %}
+        <dd>{{ provision.port2 }}</dd>
       {% else %}
           <dd>X</dd>
       {% endif %}
