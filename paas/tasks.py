@@ -887,15 +887,19 @@ def update_remote_loads(self):
     for host in RemoteHost.objects.all():
         try:
             # Methode: uptime
-            with _ssh_client(host) as ssh:
-                _, out, _ = _run_cmd(ssh, 'uptime')
-            load = _parse_loadavg(out)
+            #with _ssh_client(host) as ssh:
+            #    _, out, _ = _run_cmd(ssh, 'uptime')
+            #load = _parse_loadavg(out)
             '''
             Falls `uptime` nicht verfügbar ist (z.B. auf minimalistischen Docker‑Hosts), kann man stattdessen `cat /proc/loadavg` ausführen:            
             out = _run_ssh_command(host, 'cat /proc/loadavg')
             load = float(out.split()[0])                        
             Das liefert denselben ersten Load‑Average‑Wert.
             '''
+            # Methode "cat /proc/loadavg"
+            with _ssh_client(host) as ssh:
+                _, out, _ = _run_cmd(ssh, 'cat /proc/loadavg')
+            load = float(out.split()[0])
 
             # Für ein Feld, das 0–10 (100 %) bedeutet, normalisieren:
             load_normalized = min(max(load, 0.0), 10.0)
