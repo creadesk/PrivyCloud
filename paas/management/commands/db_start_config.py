@@ -228,8 +228,9 @@ class Command(BaseCommand):
                 ("id","hostname","ip_address","ssh_user","ssh_key_path",
                  "current_load","nur_superuser")
             VALUES
-                ('1','192.168.1.113','192.168.1.113','deploy','/home/user/.ssh/deploy_key','10.0','0'),
-                ('2','127.0.0.1','127.0.0.1','deploy','/home/user/.ssh/deploy_key_local','10.0','1')
+                ('1','<ip_zielhost_1>','<ip_zielhost_1>','deploy','/home/user/.ssh/deploy_key','10.0','0'),
+                ('2','<ip_zielhost_2>','<ip_zielhost_2>','deploy','/home/user/.ssh/deploy_key','10.0','0'),
+                ('3','127.0.0.1','127.0.0.1','deploy','/home/user/.ssh/deploy_key_local','10.0','1')
             ;
             """
         ]
