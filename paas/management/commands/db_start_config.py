@@ -145,7 +145,15 @@ class Command(BaseCommand):
                 ('22','phpmyadmin','phpmyadmin',
                  'phpmyadmin',
                  'Ein kostenloses, in PHP geschriebenes Software-Tool, das für die Verwaltung von MySQL über das Internet gedacht ist.',
-                 '1','80','1','80','1','0','0')
+                 '1','80','1','80','1','0','0'),
+                 
+                ('23', 'postgres', 'postgres', 'postgres', 'Ein objektrelationales Datenbanksystem.', '1', '1', '5432', '1', '1', '1', '1'),
+                
+                ('24', 'adminer', 'adminer', 'adminer', 'Datenbankverwaltung in einer einzigen PHP-Datei.', '1', '8080', '1', '8080', '1', '0', '0'),
+                
+                ('25', 'immich-server', 'immich-server', 'ghcr.io/immich-app/immich-server:release', 'Selbst gehostete Lösung zur Verwaltung von Fotos und Videos.', '1', '2283', '1', '2283', '1', '1', '0'),
+                
+                ('26', 'immich-db', 'immich-db', 'ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0', 'Postgres Datenbank für Immich', '1', '5432', '1', '1', '1', '1', '1')
             ;
             """
         ]
@@ -172,7 +180,23 @@ class Command(BaseCommand):
                 ('24','MYSQL_USER','<db_user>','1','1','21'),
                 ('25','MYSQL_PASSWORD','<db_user_password>','1','1','21'),
                 ('26','PMA_HOST','<db_host_ip>','1','1','22'),
-                ('27','PMA_PORT','<db_port>','1','1','22')
+                ('27','PMA_PORT','<db_port>','1','1','22'),
+                ('28', 'POSTGRES_PASSWORD', '<db_superuser_password>', '0', '1', '23'),
+                ('29', 'POSTGRES_DB', '<db_name>', '1', '1', '23'),
+                ('30', 'ADMINER_DEFAULT_SERVER', '<db_ip:port>', '0', '1', '24'),
+                ('31', 'ADMINER_PLUGINS', '''tables-filter tinymce''', '1', '1', '24'),
+                ('32', 'ADMINER_DESIGN', '''nette''', '1', '1', '24'),
+                ('33', 'UPLOAD_LOCATION', '/usr/src/app/upload', '0', '0', '25'),
+                ('47', 'DB_URL', '"postgresql://<db_user>:<db_user_password>@<db_host_ip>:<db_host_port>/<db_name>"', '0', '1', '25'),
+                ('49', 'REDIS_HOSTNAME', '<redis_host_ip>', '0', '1', '25'),
+                ('50', 'REDIS_PORT', '<redis_host_port>', '0', '1', '25'),
+                ('51', 'REDIS_USERNAME', '<redis_user>', '0', '1', '25'),
+                ('52', 'REDIS_PASSWORD', '<redis_user_password>', '0', '1', '25'),
+                ('53', 'REDIS_DBINDEX', '<redis_db_index>', '0', '1', '25'),
+                ('54', 'IMMICH_MACHINE_LEARNING_ENABLED', 'false', '0', '0', '25'),
+                ('55', 'POSTGRES_PASSWORD', '<db_user_password>', '0', '1', '26'),
+                ('56', 'POSTGRES_USER', '<db_user>', '0', '1', '26'),
+                ('57', 'POSTGRES_DB', '<db_name>', '0', '1', '26')
             ;
             """
         ]
@@ -200,7 +224,11 @@ class Command(BaseCommand):
                 ('16','nostr_rs_relay/data','/usr/src/app/db','14'),
                 ('17','signal-api-data','/home/.local/share/signal-cli','18'),
                 ('19','wordpress-data','/var/www/html','20'),
-                ('20','mysql-data','/var/lib/mysql','21')
+                ('20','mysql-data','/var/lib/mysql','21'),
+                ('23', 'postgres-data', '/var/lib/postgresql', '23'),
+                ('24', 'immich-server-data', '/usr/src/app/upload', '25'),
+                ('26', '/etc/localtime', '/etc/localtime:ro', '25'),
+                ('27', 'immich-db-data', '/var/lib/postgresql/data', '26')
             ;
             """
         ]
