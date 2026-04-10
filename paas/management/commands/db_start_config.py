@@ -153,7 +153,9 @@ class Command(BaseCommand):
                 
                 ('25', 'immich-server', 'immich-server', 'ghcr.io/immich-app/immich-server:release', 'Selbst gehostete Lösung zur Verwaltung von Fotos und Videos.', '1', '2283', '1', '2283', '1', '1', '0'),
                 
-                ('26', 'immich-db', 'immich-db', 'ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0', 'Postgres Datenbank für Immich', '1', '5432', '1', '1', '1', '1', '1')
+                ('26', 'immich-db', 'immich-db', 'ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0', 'Postgres Datenbank für Immich', '1', '5432', '1', '1', '1', '1', '1'),
+                
+                ('28', 'nextcloud', 'nextcloud', 'nextcloud:latest', 'Eine Software für das Speichern von Daten (z. B. Dateien, Kalendern, Kontakten etc.) auf einem Server.', '1', '80', '1', '8080', '1', '1', '0')
             ;
             """
         ]
@@ -196,7 +198,11 @@ class Command(BaseCommand):
                 ('54', 'IMMICH_MACHINE_LEARNING_ENABLED', 'false', '0', '0', '25'),
                 ('55', 'POSTGRES_PASSWORD', '<db_user_password>', '0', '1', '26'),
                 ('56', 'POSTGRES_USER', '<db_user>', '0', '1', '26'),
-                ('57', 'POSTGRES_DB', '<db_name>', '0', '1', '26')
+                ('57', 'POSTGRES_DB', '<db_name>', '0', '1', '26'),
+                ('58', 'MYSQL_HOST', '<db_ip_port>', '0', '1', '28'),
+                ('59', 'MYSQL_DATABASE', '<db_name>', '0', '1', '28'),
+                ('60', 'MYSQL_USER', '<db_user>', '0', '1', '28'),
+                ('61', 'MYSQL_PASSWORD', '<db_user_password>', '0', '1', '28')
             ;
             """
         ]
@@ -228,7 +234,8 @@ class Command(BaseCommand):
                 ('23', 'postgres-data', '/var/lib/postgresql', '23'),
                 ('24', 'immich-server-data', '/usr/src/app/upload', '25'),
                 ('26', '/etc/localtime', '/etc/localtime:ro', '25'),
-                ('27', 'immich-db-data', '/var/lib/postgresql/data', '26')
+                ('27', 'immich-db-data', '/var/lib/postgresql/data', '26'),
+                ('28', 'nextcloud-data', '/var/www/html', '28')
             ;
             """
         ]
