@@ -300,7 +300,20 @@ def deploy_success(request, pk):
 @login_required
 @rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
 def my_apps(request):
+  """
+  Zeigt die Apps des Benutzers an. Vor dem Rendern wird für jede
+  ProvisionedApp der aktuelle Container‑Status abgefragt und in die
+  Datenbank geschrieben, sodass die Vorlage immer den aktuellen Zustand
+  anzeigt.
+  """
   provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
+
+  # Status aktualisieren
+  for p in provisions:
+      p.refresh_status()
+      # Nur dann speichern, wenn sich etwas geändert hat
+      p.save(update_fields=['status'])
+
   return render(request, 'paas/my_apps.html', {
       'provisions': provisions,
       "PLATFORM_NAME": PLATFORM_NAME,
@@ -316,7 +329,7 @@ def delete_app(request, pk):
     provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
 
     # App darf nur laufen oder gelöscht werden
-    if provision.status not in ('running', 'deleting'):
+    if provision.status not in ('running', 'deleting', 'stopped'):
         # Nicht‑zulässige App – einfach weiterleiten
         return render(request, 'paas/my_apps.html', {
             'provisions': provisions,
@@ -334,7 +347,7 @@ def delete_app(request, pk):
     # ---------- 2. Schritt – Löschen ----------
     if request.method == 'POST' and 'confirmed' in request.POST:
         # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
-        if provision.status not in ('running', 'deleting'):
+        if provision.status not in ('running', 'deleting', 'stopped'):
             return render(request, 'paas/my_apps.html', {
                 'provisions': provisions,
                 "PLATFORM_NAME": PLATFORM_NAME,

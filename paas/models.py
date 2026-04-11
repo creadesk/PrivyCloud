@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import uuid
+import docker
 
 class AppDefinition(models.Model):
   """Vordefinierte Apps, die bereitgestellt werden können."""
@@ -96,6 +97,83 @@ class ProvisionedApp(models.Model):
 
   def __str__(self):
       return f"{self.user} – {self.app} on {self.host}"
+
+  # --------------------------------------------------------------------
+  # Docker‑Client über SSH bauen – nutzt die Daten aus `RemoteHost`
+  # --------------------------------------------------------------------
+  def _docker_client(self):
+      """
+      Baut einen Docker‑Client, der über SSH mit dem zugehörigen
+        RemoteHost verbindet. Der SDK‑Parameter `use_ssh_client=True`
+        übernimmt die SSH‑Authentifizierung; die Standard‑SSH‑Keys des
+        Benutzers werden automatisch verwendet. Für eine benutzerdefinierte
+        Key‑Datei kann eine entsprechende SSH‑Konfiguration im Host
+        (z.B. in ~/.ssh/config) eingerichtet werden.
+      """
+      if not self.host:
+          print(f'_docker_client, Fehler-kein host {self.host}')
+          return None
+
+      print(f'_docker_client, Host: {self.host}')
+
+      base_url = f"ssh://{self.host.ssh_user}@{self.host.hostname}"
+
+      print(f'_docker_client, base_url: {base_url}')
+
+      try:
+          client = docker.DockerClient(base_url=base_url, use_ssh_client=True)
+          return client
+      except Exception as e:
+          print(f'Verbindung konnte nicht aufgebaut werden – keine Docker‑Operation: {e}')
+          return None
+
+  # --------------------------------------------------------------------
+  # Aktuellen Container‑Status abfragen und in `self.status` schreiben
+  # --------------------------------------------------------------------
+  def refresh_status(self):
+      """
+      Liest den aktuellen Status des zugehörigen Docker‑Containers
+      (falls vorhanden) und aktualisiert `self.status`. Die Methode
+      **speichert nicht** – das wird im View‑Code erledigt.
+      """
+      if not self.container_id:
+          print('container - refresh status: Kein Container – Status unverändert lassen')
+          return
+
+      client = None
+      try:
+          client = self._docker_client()
+          if client is None:
+              print('container - refresh status: Fehler-keine Verbindung möglich')
+              return
+
+          container = client.containers.get(self.container_id)
+          docker_status = container.status  # z.B. 'running', 'exited', 'dead'
+
+          print(f'container - refresh status, container: {container}')
+          print(f'container - refresh status, container status: {docker_status}')
+
+          # Mapping zu unserem internen Status‑Wert
+          if docker_status == 'running':
+              new_status = 'running'
+          elif docker_status in ('exited', 'dead', 'created'):
+              new_status = 'stopped'
+          else:
+              new_status = docker_status
+
+          # Nur bei Änderung aktualisieren
+          if new_status != self.status:
+              self.status = new_status
+
+      except docker.errors.NotFound:
+          # Container existiert nicht mehr → als gelöscht kennzeichnen
+          self.status = 'deleted'
+      except Exception:
+          # Alle anderen Fehler → Fehlerstatus setzen
+          self.status = 'error'
+      finally:
+          if client:
+              client.close()
 
 
 '''
