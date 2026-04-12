@@ -757,6 +757,9 @@ WantedBy=default.target
             provision.log += f"\nOnion‑Service erstellt: http://{onion_addr}:80"
             provision.save(update_fields=["onion_address", "log"])
 
+            provision.docker_run_cmd = docker_cmd
+            provision.save(update_fields=["docker_run_cmd"])
+
     except Exception as exc:
         if provision:
             provision.status = "error"

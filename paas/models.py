@@ -86,6 +86,7 @@ class ProvisionedApp(models.Model):
       help_text="Onion‑Adresse des Tor‑Hidden‑Services (falls erstellt)"
   )
   last_modified = models.DateTimeField(auto_now=True)
+  docker_run_cmd = models.CharField(max_length=5000, blank=True, null=True)
 
   class Meta:
   #   unique_together = ('user', 'app', 'host')   # keine Duplikate
