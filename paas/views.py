@@ -370,3 +370,51 @@ def delete_app(request, pk):
         'provisions': provisions,
         "PLATFORM_NAME": PLATFORM_NAME,
     })
+
+
+@login_required
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def stop_app(request, pk):
+    provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
+    provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
+
+    # ---------- Stoppen ----------
+    if request.method == 'POST':
+        # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
+        if provision.status not in ('running'):
+            return redirect("paas_my_apps")
+
+        provision.status = 'stopping'
+        provision.save()
+
+        provision.stop_container()
+
+        # Nach erfolgreichem stoppen Weiterleitung
+        return redirect("paas_my_apps")
+
+    # Für jede andere Methode (z.B. GET) leiten wir einfach weiter
+    return redirect("paas_my_apps")
+
+
+@login_required
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def start_app(request, pk):
+    provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
+    provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
+
+    # ---------- Stoppen ----------
+    if request.method == 'POST':
+        # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
+        if provision.status not in ('stopped'):
+            return redirect("paas_my_apps")
+
+        provision.status = 'starting'
+        provision.save()
+
+        provision.start_container()
+
+        # Nach erfolgreichem stoppen Weiterleitung
+        return redirect("paas_my_apps")
+
+    # Für jede andere Methode (z.B. GET) leiten wir einfach weiter
+    return redirect("paas_my_apps")

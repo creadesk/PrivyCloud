@@ -21,6 +21,8 @@ urlpatterns = [
     path('paas/select_app',paas.views.select_app, name="paas_select_app"),
     path('paas/deploy_app',paas.views.deploy_app, name="paas_deploy_app"),
     path('paas/delete_app/<int:pk>/', paas.views.delete_app, name="paas_delete_app"),
+    path('paas/stop_app/<int:pk>/', paas.views.stop_app, name="paas_stop_app"),
+    path('paas/start_app/<int:pk>/', paas.views.start_app, name="paas_start_app"),
 ]
 
 #this is only for development purpose

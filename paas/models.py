@@ -176,6 +176,116 @@ class ProvisionedApp(models.Model):
               client.close()
 
 
+  # ----------------------------------------------------------------------
+  # Starten des Containers
+  # ----------------------------------------------------------------------
+  def start_container(self):
+      """
+      Startet den bereits vorhandenen Container (falls nicht bereits laufen).
+      """
+      if not self.container_id:
+          print("start_container: Kein Container‑ID hinterlegt – nichts zu starten")
+          self.status = 'error'
+          return False
+
+      client = None
+      try:
+          client = self._docker_client()
+          if client is None:
+              print("start_container: keine Docker‑Verbindung")
+              self.status = 'error'
+              return False
+
+          container = client.containers.get(self.container_id)
+
+          if container.status == 'running':
+              print("start_container: Container läuft bereits – keine Aktion nötig")
+              self.status = 'running'
+              return True
+
+          # Container starten
+          print(f"start_container: Starte Container {self.container_id}")
+          container.start()
+          # Warte, bis Docker das neue State meldet
+          #container.wait(condition='running')
+
+          self.started_at = timezone.now()
+          self.status = 'running'
+          self.log += f"\nContainer {self.container_id} gestartet."
+          return True
+
+      except docker.errors.NotFound:
+          print("start_container: Container nicht gefunden → als gelöscht markieren")
+          self.status = 'deleted'
+          return False
+      except docker.errors.APIError as exc:
+          print(f"start_container: Docker API‑Fehler – {exc}")
+          self.log = f"API error: {exc}"
+          self.status = 'error'
+          return False
+      except Exception as exc:
+          print(f"start_container: unerwarteter Fehler – {exc}")
+          self.log = f"Unexpected error: {exc}"
+          self.status = 'error'
+          return False
+      finally:
+          if client:
+              client.close()
+
+  # ----------------------------------------------------------------------
+  # Stoppen des Containers
+  # ----------------------------------------------------------------------
+  def stop_container(self, timeout=30):
+      """
+      Stoppt den laufenden Container.
+      """
+      if not self.container_id:
+          print("stop_container: Kein Container‑ID hinterlegt – nichts zu stoppen")
+          self.status = 'stopped'
+          return False
+
+      client = None
+      try:
+          client = self._docker_client()
+          if client is None:
+              print("stop_container: keine Docker‑Verbindung")
+              self.status = 'error'
+              return False
+
+          container = client.containers.get(self.container_id)
+
+          if container.status != 'running' and container.status != 'stopping':
+              print(f"stop_container: Container läuft nicht (status={container.status})")
+              self.status = 'stopped'
+              return True
+
+          print(f"stop_container: Stoppe Container {self.container_id}")
+          container.stop(timeout=timeout)
+          # Optional: warten bis Docker `exited` meldet
+          #container.wait(condition='exited')
+
+          self.status = 'stopped'
+          self.log += f"\nContainer {self.container_id} gestoppt."
+          return True
+
+      except docker.errors.NotFound:
+          print("stop_container: Container nicht gefunden → als gelöscht markieren")
+          self.status = 'deleted'
+          return False
+      except docker.errors.APIError as exc:
+          print(f"stop_container: Docker API‑Fehler – {exc}")
+          self.log = f"API error: {exc}"
+          self.status = 'error'
+          return False
+      except Exception as exc:
+          print(f"stop_container: unerwarteter Fehler – {exc}")
+          self.log = f"Unexpected error: {exc}"
+          self.status = 'error'
+          return False
+      finally:
+          if client:
+              client.close()
+
 '''
 > 1. **max_concurrent_apps** – verhindert, dass ein User zu viele Apps gleichzeitig laufen hat.  
 > 2. **max_total_hours_per_day** – verhindert, dass ein User die Systemkapazität überstrapaziert.  

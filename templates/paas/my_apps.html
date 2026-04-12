@@ -89,11 +89,16 @@
                               <span>gelöscht</span>
                           {% elif p.status == 'stopped' %}
                               <span>gestoppt</span>
+                          {% elif p.status == 'stopping' %}
+                              <span>stoppend</span>
+                          {% elif p.status == 'starting' %}
+                              <span>startend</span>
                           {% else %}
                               <span>fehlerhaft</span>
                           {% endif %}
                       </td>
                       <td>
+
                           {% if p.status == 'running' or p.status == 'deleting' or p.status == 'stopped'%}
                               <form method="post" action="{% url 'paas_delete_app' p.pk %}" style="display:inline;">
                                   {% csrf_token %}
@@ -103,6 +108,25 @@
                           {% else %}
                               <span>–</span>
                           {% endif %}
+
+                          {% if p.status == 'running' %}
+                              <form method="post" action="{% url 'paas_stop_app' p.pk %}" style="display:inline;">
+                                  {% csrf_token %}
+                                  <button type="submit">App stoppen</button>
+                              </form>
+                          {% else %}
+                              <span>–</span>
+                          {% endif %}
+
+                          {% if p.status == 'stopped' %}
+                              <form method="post" action="{% url 'paas_start_app' p.pk %}" style="display:inline;">
+                                  {% csrf_token %}
+                                  <button type="submit">App starten</button>
+                              </form>
+                          {% else %}
+                              <span>–</span>
+                          {% endif %}
+
                       </td>
                   </tr>
               {% endfor %}
