@@ -607,7 +607,7 @@ def simple_task():
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=60)
-def deploy_app_task(self, provision_id: int, env_vars=None,**kwargs):
+def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, **kwargs):
     """Deploy einer App als Docker‑Container + Tor‑Hidden‑Service."""
     provision = None
     try:
@@ -727,7 +727,8 @@ WantedBy=default.target
             # Volumes vor den Umgebungsvariablen anfügen (Reihenfolge ist für Docker irrelevant)
             cmd_parts.extend(vol_flag_parts)
 
-            cmd_parts.append(app_def.docker_image)
+            # cmd_parts.append(app_def.docker_image)
+            cmd_parts.append(selected_image)
 
             docker_cmd = " ".join(cmd_parts)
             print(f"[deploy_app_task] Docker‑Cmd: {docker_cmd}")  # Debug‑Ausgabe
@@ -759,6 +760,9 @@ WantedBy=default.target
 
             provision.docker_run_cmd = docker_cmd
             provision.save(update_fields=["docker_run_cmd"])
+
+            provision.image = selected_image
+            provision.save(update_fields=["image"])
 
     except Exception as exc:
         if provision:
@@ -927,3 +931,62 @@ def update_remote_loads(self):
     logger.info(
         f"CPU‑Load Update beendet – {successes} erfolgreich, {failures} fehlgeschlagen."
     )
+
+
+
+@shared_task(bind=True, max_retries=5, default_retry_delay=60)
+def update_app_task(self, provision_id: int, new_image: str):
+    """
+    Aktualisiert einen laufenden Docker‑Container mit einem neuen Image.
+    Die Grundlogik bleibt unverändert, jedoch:
+
+      * Nur **eine** SSH‑Session wird genutzt – stop, remove und start in einem Schritt.
+      * Die neuen Befehle werden mithilfe von `re.sub()` erzeugt.
+      * Nach erfolgreichem Start wird das Modell‑Objekt aktualisiert.
+      * Bei Fehlern wird ein Retry ausgeführt – das ist die empfohlene Celery‑Praxis.
+    """
+    logger.info("Update einer App gestartet")
+
+    try:
+        # 1. Datenbank‑Lesezugriff (nur einmal)
+        provision = ProvisionedApp.objects.select_related("app", "host").get(pk=provision_id)
+        host = provision.host
+        logger.info(f"Starte App Update '{provision.container_name}' auf {host.hostname}")
+
+        # 2. Neuen Docker‑Run‑Befehl erzeugen (letztes Token – Image – ersetzen)
+        docker_run_cmd_new = re.sub(r"\S+$", new_image, provision.docker_run_cmd)
+        logger.debug(f"Alter Docker‑Run‑Cmd:  {provision.docker_run_cmd}")
+        logger.debug(f"Neuer Docker‑Run‑Cmd: {docker_run_cmd_new}")
+
+        # 3. Alle Befehle in einer SSH‑Session ausführen
+        with _ssh_client(host) as ssh:
+            # Stop
+            _, out, _ = _run_cmd(ssh, f"docker stop {provision.container_id}")
+            logger.debug(f"Stop‑Output: {out}")
+
+            # Remove
+            _, out, _ = _run_cmd(ssh, f"docker rm {provision.container_id}")
+            logger.debug(f"Remove‑Output: {out}")
+
+            # Start mit neuem Image
+            _, container_id_new, _ = _run_cmd(ssh, docker_run_cmd_new)
+            logger.debug(f"Start‑Output: {container_id_new}")
+
+        # 4. Modell‑Daten aktualisieren (optional, aber nützlich)
+        provision.docker_run_cmd = docker_run_cmd_new
+        provision.image = new_image   # falls vorhanden
+        provision.container_id = container_id_new
+        provision.save(update_fields=["docker_run_cmd", "image", "container_id"])
+
+        logger.info(f"Update für Provision {provision_id} erfolgreich abgeschlossen")
+        return True
+
+    except Exception as exc:          # noqa: BLE001 (Broad Exception is okay here)
+        # Loggt die Fehlermeldung und startet einen Retry
+        host_name = host.hostname if 'host' in locals() else "<unknown>"
+        logger.error(
+            f"Fehler beim Update von Provision {provision_id} auf {host_name}: {exc}",
+            exc_info=True
+        )
+        # Celery‑Retry: das Task-Objekt kennt die Retry‑Logik
+        raise self.retry(exc=exc, countdown=60)

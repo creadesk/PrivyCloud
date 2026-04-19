@@ -254,7 +254,13 @@ sudo chmod 600 ~/.ssh/deploy_key
 
 Die Pflege erfolgt über die Admin-Web-Oberfläche --> Rubrik "PAAS" --> "Target Hosts".
 
-
+#### ssh Konfiguration auf lokalem System
+```bash
+Host <ZIEL_IP>
+    HostName <ZIEL_IP>
+    User deploy
+    IdentityFile <PFAD_ZUM_KEY>
+```
 
 
 ## Dienste einrichten

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import (
+  AppImageTag,
   AppDefinition,
   RemoteHost,
   ProvisionedApp,
@@ -8,6 +9,11 @@ from .models import (
   ConfigPatch,
   UserDeploymentLimit,
 )
+
+@admin.register(AppImageTag)
+class AppImageTagAdmin(admin.ModelAdmin):
+  list_display = ('id', 'tag', 'app_definition')
+  search_fields = ('id', 'tag', 'app_definition')
 
 @admin.register(AppDefinition)
 class AppDefinitionAdmin(admin.ModelAdmin):

@@ -23,6 +23,7 @@ urlpatterns = [
     path('paas/delete_app/<int:pk>/', paas.views.delete_app, name="paas_delete_app"),
     path('paas/stop_app/<int:pk>/', paas.views.stop_app, name="paas_stop_app"),
     path('paas/start_app/<int:pk>/', paas.views.start_app, name="paas_start_app"),
+    path('paas/update_app', paas.views.update_provisioned_app, name='update_provisioned_app'),
 ]
 
 #this is only for development purpose

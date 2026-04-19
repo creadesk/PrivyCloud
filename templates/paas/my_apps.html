@@ -129,6 +129,52 @@
 
                       </td>
                   </tr>
+
+                  {# ------------- Panel unter jeder Provision‑Zeile ------------- #}
+                  <tr class="panel-row">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}" style="padding: 0;">
+                            <details class="app-image-panel">
+                                <summary class="panel-summary">
+                                    <!-- Hier kann ein Icon oder Text stehen, der beim Klicken den Panel toggelt -->
+
+                                    <!-- Optional: ein kleines “+”‑/“-”‑Icon, das sich automatisch ändert -->
+                                    <span class="toggle-icon" aria-hidden="true"></span>
+                                </summary>
+
+                                <form method="post" action="{% url 'update_provisioned_app' %}" >
+                                    {% csrf_token %}
+                                    <!-- 1. ID der Bereitstellung übertragen  -->
+                                    <input type="hidden" name="provision_id" value="{{ p.id }}">
+
+                                    <!-- Das eigentliche Panel‑Inhalt: Button + weitere Infos -->
+                                    <div class="panel-content" style="padding:0.5rem 1rem; display:flex; align-items:center; gap:1rem;">
+                                        <span class="placeholder">aktuelles Image: {{ p.image }}</span>
+                                        <span class="placeholder">
+                                            verfügbare Images:
+                                            {% if p.available_images %}
+                                                <!--<select name="image-{{ p.id }}" class="image-select" data-provision-id="{{ p.id }}">-->
+                                                <select name="new_image" class="image-select" style="margin:0;">
+                                                    <option value="" selected></option>
+                                                    {% for img in p.available_images %}
+                                                        {% if img != p.image %}
+                                                            <option value="{{ img }}">{{ img }}</option>
+                                                        {% endif %}
+                                                    {% empty %}
+                                                        <option disabled>keine Tags vorhanden</option>
+                                                    {% endfor %}
+                                                </select>
+                                            {% else %}
+                                                keine Tags vorhanden
+                                            {% endif %}
+                                        </span>
+                                        <button type="submit" class="update-btn" style="padding:0.5rem 1rem;">Update durchführen</button>
+                                    </div>
+
+                                </form>
+                            </details>
+                        </td>
+                  </tr>
+
               {% endfor %}
           </tbody>
       </table>

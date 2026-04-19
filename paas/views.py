@@ -7,15 +7,17 @@ from django.utils import timezone
 from django.urls import reverse
 
 from django.utils.dateparse import parse_duration
-from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp
+from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag
 from .forms import DeployForm, DeployFormAdmin
 from .strategies import LeastLoadStrategy
-from .tasks import deploy_app_task, delete_container_task
+from .tasks import deploy_app_task, delete_container_task, update_app_task
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
 
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseForbidden
+
+from django.contrib import messages
 
 
 def _check_user_limits(user, requested_duration, request):
@@ -122,6 +124,12 @@ def deploy_app(request):
                 duration = form.cleaned_data['duration']  # timedelta oder None
                 target_host = form.cleaned_data.get('target_host')
 
+                # nur editierbare Umgeb.Variablen an den Client schicken
+                app_env_vars = AppEnvVarPerApp.objects.filter(app=app_def, editable=True) if app_def else []
+
+                # Alle kompletten Image‑Strings für die gewählte App generieren
+                full_images = [app_def.full_docker_image(tag) for tag in app_def.image_tags.all()]
+
                 # Nur die Vorschau anzeigen – kein Deploy
                 context = {
                     'app_selected': app_def,
@@ -129,7 +137,8 @@ def deploy_app(request):
                     'target_host_selected': target_host,
                     'app_description': app_def.description,
                     'readonly': True,
-                    'app_env_vars': AppEnvVarPerApp.objects.filter(app=app_def, editable=True) if app_def else [], # nur editierbare Umgeb.Variablen an den Client schicken
+                    'app_env_vars': app_env_vars,
+                    'images': full_images,
                     "PLATFORM_NAME": PLATFORM_NAME,
                 }
                 return render(request, 'paas/deploy_app.html', context)
@@ -152,10 +161,30 @@ def _handle_deploy(request, form):
 
     app_selected = request.POST.get('app_selected')
     print(app_selected)
+
+    # Das ausgewählte Image holen
+    selected_image = request.POST.get('image_choice')
+
     try:
         app_def = AppDefinition.objects.get(name=app_selected)
     except AppDefinition.DoesNotExist:
         app_def = None  # oder andere Fehlerbehandlung
+
+    # Alle gültigen Image‑Strings der App erzeugen
+    valid_images = {
+        app_def.full_docker_image(tag)
+        for tag in app_def.image_tags.all()
+    }
+
+    # 4. Prüfen, ob das ausgewählte Image gültig ist
+    if selected_image not in valid_images:
+        return render_deploy(
+            request,
+            error=("Das ausgewählte Docker‑Image ist nicht gültig."),
+            app_def=app_def,
+        )
+
+    # --- alles OK mit der image Auswahl--------------------------------------------------
 
     duration = request.POST.get('duration_selected', 1)
 
@@ -239,7 +268,7 @@ def _handle_deploy(request, form):
     )
 
     # 7) Deploy‑Task starten
-    deploy_app_task(provision.id, env_vars)
+    deploy_app_task(provision.id, selected_image, env_vars)
     provision.refresh_from_db()
 
     # 8) Erfolgspage
@@ -304,7 +333,8 @@ def my_apps(request):
   Zeigt die Apps des Benutzers an. Vor dem Rendern wird für jede
   ProvisionedApp der aktuelle Container‑Status abgefragt und in die
   Datenbank geschrieben, sodass die Vorlage immer den aktuellen Zustand
-  anzeigt.
+  anzeigt. Außerdem wird die Liste der für jede Provision verfügbaren
+  Images aufgebaut, damit die Front‑End‑Tabelle diese direkt ausgeben kann.
   """
   provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
 
@@ -313,6 +343,19 @@ def my_apps(request):
       p.refresh_status()
       # Nur dann speichern, wenn sich etwas geändert hat
       p.save(update_fields=['status'])
+
+      # ------------------------------------------------------------------
+      # Berechne die verfügbaren Images: <registry>/<user>/<imagename>:<tag>
+      # ------------------------------------------------------------------
+      # 1. Docker‑Image ohne Tag (z.B. „docker.io/louislam/uptime-kuma“)
+      base_img = p.app.docker_image
+      # 2. Alle Tags der App durchlaufen
+      tags = p.app.image_tags.all()
+      # 3. Für jeden Tag einen vollständigen Image‑String erzeugen
+      p.available_images = [
+          f"{base_img}:{t.tag}"
+          for t in tags
+      ]
 
   return render(request, 'paas/my_apps.html', {
       'provisions': provisions,
@@ -418,3 +461,43 @@ def start_app(request, pk):
 
     # Für jede andere Methode (z.B. GET) leiten wir einfach weiter
     return redirect("paas_my_apps")
+
+
+
+@login_required
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def update_provisioned_app(request):
+    """
+    POST‑Request, um einen laufenden Container sofort auf ein neues
+    Docker‑Image zu aktualisieren.
+    Dabei wird geprüft, dass die `ProvisionedApp` dem angemeldeten User
+    gehört.  Falls die ID nicht existiert oder der User nicht der Besitzer
+    ist, wird ein 404 (oder einfach Redirect) zurückgegeben.
+    """
+
+    if request.method != 'POST':
+        return redirect('paas_my_apps')
+
+    # 1. POST‑Daten holen & validieren
+    try:
+        provision_id = int(request.POST['provision_id'])
+    except (KeyError, ValueError):
+        return redirect('paas_my_apps')
+
+    new_image = request.POST.get('new_image')
+    if not new_image:
+        return redirect('paas_my_apps')
+
+    # 2. Sicherstellen, dass die Provision zu diesem User gehört
+    provision = get_object_or_404(
+        ProvisionedApp,
+        pk=provision_id,
+        user=request.user,          # ←  Eigentümerschaft prüfen
+    )
+
+    # 3. Task synchron ausführen
+    #    (Kein .delay() – die Task läuft im aktuellen Prozess)
+    update_app_task(provision_id, new_image)
+
+    # 4. Weiterleitung
+    return redirect('paas_my_apps')

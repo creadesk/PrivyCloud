@@ -141,3 +141,61 @@ table form {
 
 
 
+/* --- Panel (details) --- */
+.app-image-panel {
+    /*border: 1px solid #ccc;*/
+    border-radius: 4px;
+    margin: 0.5rem 0;
+    /* Für ein konsistentes Aussehen */
+}
+
+.panel-summary {
+    /*display: flex;*/
+    align-items: center;
+    gap: 0.5rem;
+    /*padding: 0.5rem 1rem;*/
+    cursor: pointer;
+    background-color: #000;
+    font-weight: 600;
+    user-select: none;           /* verhindert Text‑Auswahl beim Klicken */
+}
+
+.panel-summary:focus {
+    /*outline: 2px solid #007bff;*/  /* Barrierefreiheit */
+}
+
+/* Icon, das sich umschaltet */
+.toggle-icon {
+    margin-left: auto;
+    font-size: 1.2rem;
+    transition: transform 0.2s ease;
+}
+
+/* Icon‑Text */
+.panel-summary::after {
+    content: '+';
+    display: inline-block;
+    font-weight: bold;
+    margin-left: 0.5rem;
+}
+
+/* Icon bei geöffneter Panel */
+.app-image-panel[open] .panel-summary::after {
+    content: '−';
+}
+
+/* Panel‑Inhalt: default „hidden“ */
+.panel-content {
+    display: none;            /* immer verborgen, bis open */
+    background-color: #1c1613;
+    border-top: 1px solid #2e2017;
+}
+
+/* Bei open zeigen */
+.app-image-panel[open] .panel-content {
+    display: flex;            /* hier Flex‑Layout wie im Original */
+}
+
+
+
+

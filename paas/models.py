@@ -1,3 +1,5 @@
+from __future__ import annotations  # optional, aber sauberer
+from typing import Optional
 from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -5,12 +7,24 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import uuid
 import docker
+import shlex
+
+
 
 class AppDefinition(models.Model):
   """Vordefinierte Apps, die bereitgestellt werden können."""
+
   name = models.CharField(max_length=64, unique=True)
   display_name = models.CharField(max_length=128)
-  docker_image = models.CharField(max_length=256)
+  # ──────────────────────────────────────────────────────────────
+  # Basis‑Image (ohne Tag).  Die eigentliche Tag‑Liste ist in
+  # AppImageTag gespeichert.
+  # ──────────────────────────────────────────────────────────────
+  docker_image = models.CharField(
+      max_length=256,
+      help_text="Registry + Image‑Name (ohne Tag), z.B. 'louislam/uptime‑kuma'.",
+  )
+
   description = models.TextField(blank=True)
   default_duration = models.PositiveIntegerField(default=1)  # Stunden
   app_port_intern_web = models.PositiveIntegerField(default=80)  # Web-Port, den die App innerhalb des Dockercontainers anbietet
@@ -27,6 +41,60 @@ class AppDefinition(models.Model):
 
   def __str__(self):
       return self.display_name
+
+  # ----------------------------------------------------
+  # Hilfs‑Property – gibt den vollständigen Image‑String zurück
+  # ----------------------------------------------------
+  def full_docker_image(self, tag: Optional['AppImageTag'] = None) -> str:
+      """
+      Gibt den kompletten Docker‑Image‑String zurück.
+
+      >>> app = AppDefinition.objects.get(name='uptime-kuma')
+      >>> tag = AppImageTag.objects.get(app_definition=app, tag='2.2.1')
+      >>> app.full_docker_image(tag)
+      'louislam/uptime-kuma:2.2.1'
+
+      Wenn kein Tag übergeben wird, liefert die Methode den ersten
+      Tag der App (falls vorhanden).  Das ist praktisch für
+      „default‑Tag“‑Logik in Ihrer Applikation.
+      """
+      # Falls kein Tag übergeben wurde, wähle den ersten (nach
+      # der Standard‑Sortierung des RelatedManager) Tag der App.
+      if not tag:
+          tag = self.image_tags.first()  # `image_tags` ist die Reverse‑FK
+
+      # `tag` ist entweder ein AppImageTag‑Objekt oder None.
+      # Für das Tag‑Objekt greifen wir auf das Feld `tag` zu.
+      return f"{self.docker_image}:{tag.tag}" if tag else self.docker_image
+
+
+class AppImageTag(models.Model):
+    """
+    Das Tag‑Set einer **eigenen** AppDefinition.
+    """
+
+    app_definition = models.ForeignKey(
+        AppDefinition,
+        on_delete=models.CASCADE,
+        related_name='image_tags',          # ↔︎ AppDefinition.image_tags
+        verbose_name='App Definition',
+        default=1,
+    )
+    tag = models.CharField(max_length=64)
+
+    class Meta:
+        verbose_name = "App Image Tag"
+        verbose_name_plural = "App Image Tags"
+        ordering = ['tag']
+        # Ein Tag darf **nicht** mehr als einmal bei einer App vorkommen
+        unique_together = ('app_definition', 'tag')
+        # (optional)   ──────────────────────
+        # Wenn Sie wollen, dass *globale* Unikate existieren
+        # (z.B. „latest“ ist bei allen Apps gleich), entfernen Sie
+        # die unique‑together‑Constraint.
+
+    def __str__(self) -> str:
+        return f"{self.app_definition.display_name} – {self.tag}"
 
 
 class RemoteHost(models.Model):
@@ -87,6 +155,7 @@ class ProvisionedApp(models.Model):
   )
   last_modified = models.DateTimeField(auto_now=True)
   docker_run_cmd = models.CharField(max_length=5000, blank=True, null=True)
+  image = models.CharField(max_length=250, blank=True, null=True)
 
   class Meta:
   #   unique_together = ('user', 'app', 'host')   # keine Duplikate
@@ -108,7 +177,7 @@ class ProvisionedApp(models.Model):
         RemoteHost verbindet. Der SDK‑Parameter `use_ssh_client=True`
         übernimmt die SSH‑Authentifizierung; die Standard‑SSH‑Keys des
         Benutzers werden automatisch verwendet. Für eine benutzerdefinierte
-        Key‑Datei kann eine entsprechende SSH‑Konfiguration im Host
+        Key‑Datei muss eine entsprechende SSH‑Konfiguration im Host
         (z.B. in ~/.ssh/config) eingerichtet werden.
       """
       if not self.host:
@@ -286,6 +355,8 @@ class ProvisionedApp(models.Model):
       finally:
           if client:
               client.close()
+
+
 
 '''
 > 1. **max_concurrent_apps** – verhindert, dass ein User zu viele Apps gleichzeitig laufen hat.  

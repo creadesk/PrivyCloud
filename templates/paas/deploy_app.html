@@ -98,6 +98,16 @@
 
         {% endif %}
 
+        <!-- ---------- Images ---------- -->
+        {% if images %}
+          <label for="image_choice">Docker‑Image auswählen:</label>
+          <select name="image_choice" id="image_choice">
+            {% for image in images %}
+              <option value="{{ image }}">{{ image }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+
         <!-- ---------- Umgebungsvariablen ---------- -->
         {% if app_env_vars %}
             <!--<h4>Umgebungsvariablen</h4>-->
