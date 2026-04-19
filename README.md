@@ -256,6 +256,9 @@ Die Pflege erfolgt über die Admin-Web-Oberfläche --> Rubrik "PAAS" --> "Target
 
 #### ssh Konfiguration auf lokalem System
 ```bash
+nano ~/.ssh/config
+```
+```bash
 Host <ZIEL_IP>
     HostName <ZIEL_IP>
     User deploy
