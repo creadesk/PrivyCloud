@@ -478,26 +478,51 @@ def update_provisioned_app(request):
     if request.method != 'POST':
         return redirect('paas_my_apps')
 
-    # 1. POST‑Daten holen & validieren
+    # POST‑Daten holen & validieren
     try:
         provision_id = int(request.POST['provision_id'])
     except (KeyError, ValueError):
+        print("Ungültige Provision‑ID.")
         return redirect('paas_my_apps')
 
     new_image = request.POST.get('new_image')
     if not new_image:
+        print("Das neue Image wurde nicht angegeben.")
         return redirect('paas_my_apps')
 
-    # 2. Sicherstellen, dass die Provision zu diesem User gehört
+    # ------------------------------------------------------------------
+    # Validierung von new_image
+    # ------------------------------------------------------------------
+    # Syntax prüfen: <image>:<tag>
+    if ':' not in new_image:
+        print("Image muss im Format <image>:<tag> sein.")
+        return redirect('paas_my_apps')
+
+    image_part, tag_part = new_image.split(':', 1)  # nur das erste ':' teilen
+
+    # Prüfen, ob das Image in AppDefinition existiert
+    try:
+        app_def = AppDefinition.objects.get(docker_image=image_part)
+    except AppDefinition.DoesNotExist:
+        print(f"Image '{image_part}' ist nicht in den Referenzdaten vorhanden.")
+        return redirect('paas_my_apps')
+
+    # Prüfen, ob das Tag zu diesem Image gehört
+    if not AppImageTag.objects.filter(app_definition=app_def, tag=tag_part).exists():
+        print(f"Tag '{tag_part}' für Image '{image_part}' existiert nicht.")
+        return redirect('paas_my_apps')
+
+    # Sicherstellen, dass die Provision zu diesem User gehört
     provision = get_object_or_404(
         ProvisionedApp,
         pk=provision_id,
         user=request.user,          # ←  Eigentümerschaft prüfen
     )
 
-    # 3. Task synchron ausführen
+    # Task synchron ausführen
     #    (Kein .delay() – die Task läuft im aktuellen Prozess)
     update_app_task(provision_id, new_image)
 
     # 4. Weiterleitung
+    print(f"Provision '{provision.container_name}' wird auf {new_image} aktualisiert.")
     return redirect('paas_my_apps')
