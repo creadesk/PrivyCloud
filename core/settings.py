@@ -51,9 +51,9 @@ INSTALLED_APPS = [
     'authent',
     'captcha',
     'django_smart_ratelimit',
-    'paas.apps.PaasConfig',
     'config',
     'django_celery_beat',
+    'paas.apps.PaasConfig',
     'two_factor',
 ]
 

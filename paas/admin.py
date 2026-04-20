@@ -9,6 +9,11 @@ from .models import (
   ConfigPatch,
   UserDeploymentLimit,
 )
+from django.contrib import admin
+from django_celery_beat.models import (
+    PeriodicTask, IntervalSchedule, CrontabSchedule,
+    SolarSchedule, ClockedSchedule
+)
 
 @admin.register(AppImageTag)
 class AppImageTagAdmin(admin.ModelAdmin):
@@ -53,3 +58,10 @@ class ConfigPatchAdmin(admin.ModelAdmin):
   list_display = ('id', 'app', 'volume', 'target_file', 'action')
   list_filter = ('action',)
   search_fields = ('app__name', 'volume__app__name', 'target_file')
+
+
+for model in [PeriodicTask, IntervalSchedule, CrontabSchedule, SolarSchedule, ClockedSchedule]:
+    try:
+        admin.site.unregister(model)
+    except admin.sites.NotRegistered:
+        pass
