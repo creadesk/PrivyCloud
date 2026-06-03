@@ -317,7 +317,7 @@ After=network.target celery_privycld.service
 User=<app_user>
 Group=<app_group>
 WorkingDirectory=<pfad_zum_projekt>
-ExecStart=<pfad_zum_projekt>/venv/bin/gunicorn --timeout 550 --workers 3 --bind 0.0.0.0:8000 core.wsgi:application
+ExecStart=<pfad_zum_projekt>/.venv/bin/gunicorn --timeout 550 --workers 3 --bind 0.0.0.0:8000 core.wsgi:application
 
 [Install]
 WantedBy=multi-user.target
