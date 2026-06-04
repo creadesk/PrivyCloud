@@ -66,7 +66,7 @@ class Command(BaseCommand):
         # ──────────────────────────────────────────────────────────────────────
         paas_appdefinition_sql = [
             """
-            INSERT INTO "paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES
+            INSERT OR IGNORE INTO "paas_appdefinition" ("id", "name", "display_name", "docker_image", "description", "default_duration", "app_port_intern_web", "app_port_intern_api", "hiddenservice_port_web", "hiddenservice_port_api", "use_deploy_user", "no_hidden_service") VALUES
 (1, 'it-tools', 'it-tools', 'ghcr.io/corentinth/it-tools', 'Nützliche Werkzeuge für Entwickler und Personen, die in der IT arbeiten.', 1, 80, 1, 80, 1, 0, 0),
 (2, 'uptime-kuma', 'uptime-kuma', 'docker.io/louislam/uptime-kuma', 'Ein einfaches und nützliches Monitoring‑Tool.', 1, 3001, 1, 3001, 1, 0, 0),
 (3, 'redis', 'redis', 'docker.io/redis/redis-stack', 'In-Memory‑Datenbank für schnelle Lese‑/Schreibzugriffe. Initiales Passwort: mypassword', 1, 8001, 6379, 8001, 6379, 0, 0),
@@ -99,7 +99,7 @@ http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', 1, 8080, 1,
         # ──────────────────────────────────────────────────────────────────────
         paas_appenvvarperapp_sql = [
             """
-            INSERT INTO "paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES
+            INSERT OR IGNORE INTO "paas_appenvvarperapp" ("id", "key", "value", "optional", "editable", "app_id") VALUES
 (1, 'ADDR', '<onion_address>', 0, 0, 4),
 (2, 'ADDR', '<onion_address>', 0, 0, 5),
 (3, 'QUOTA', '1gb', 0, 0, 5),
@@ -143,7 +143,7 @@ http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', 1, 8080, 1,
         # ──────────────────────────────────────────────────────────────────────
         paas_appvolumeperapp_sql = [
             """
-            INSERT INTO "paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES
+            INSERT OR IGNORE INTO "paas_appvolumeperapp" ("id", "host_path", "container_path", "app_id") VALUES
 (1, 'simplex/smp/config', '/etc/opt/simplex:z', 4),
 (2, 'simplex/smp/logs', '/var/opt/simplex:z', 4),
 (3, 'simplex/xftp/config', '/etc/opt/simplex-xftp:z', 5),
@@ -172,8 +172,8 @@ http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', 1, 8080, 1,
         #  4. Paas_ConfigPatch
         # ──────────────────────────────────────────────────────────────────────
         paas_configpatch_sql = [
-            """
-            INSERT INTO "paas_configpatch" ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id") VALUES
+            r"""
+            INSERT OR IGNORE INTO "paas_configpatch" ("id", "target_file", "pattern", "action", "replacement", "app_id", "volume_id") VALUES
 (1, 'simplex/smp/config/smp-server.ini', '^\(https\|cert\|key\):', 'comment', '', 4, 1),
 (2, 'i2pconfig/router.config', '^routerconsole', 'add', 'routerconsole.allowedHosts=<onion_address>', 13, 13);
             """
@@ -184,7 +184,7 @@ http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', 1, 8080, 1,
         # ──────────────────────────────────────────────────────────────────────
         paas_appimagetag_sql = [
             """
-            INSERT INTO "paas_appimagetag" ("id", "app_definition_id", "tag") VALUES
+            INSERT OR IGNORE INTO "paas_appimagetag" ("id", "app_definition_id", "tag") VALUES
 (1, 1, '2024.10.22-7ca5933'),
 (2, 2, '2.2.1'),
 (3, 3, '7.4.0-v8'),
@@ -216,7 +216,7 @@ http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', 1, 8080, 1,
         # ──────────────────────────────────────────────────────────────────────
         paas_remotehost_sql = [
             """
-            INSERT INTO "main"."paas_remotehost"
+            INSERT OR IGNORE INTO "main"."paas_remotehost"
                 ("id","hostname","ip_address","ssh_user","ssh_key_path",
                  "current_load","nur_superuser")
             VALUES

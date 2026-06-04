@@ -57,7 +57,13 @@
     docker run -d --name redis-stack --restart unless-stopped -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
     ```
     - Web-Zugriff: http://<dein_redis_host_ip>:8001
- 
+
+
+- Firewall freischalten
+    ```bash
+    sudo ufw allow 6379
+    sudo ufw allow 8001
+    ```
 
 ## Einrichtung
 
@@ -194,6 +200,7 @@ sudo usermod -aG docker deploy
 #### Auf dem Celery‑Host (z.B. dein lokaler Entwicklungsrechner)
 ```bash
 ssh-keygen -t ed25519 -C "celery-deploy-key" -f ~/.ssh/deploy_key
+--> key ohne Passphrase, Passphrase Abfrage mit Enter überspringen
 ```
 Du bekommst ~/.ssh/deploy_key (privat) und ~/.ssh/deploy_key.pub (öffentlich)
 
@@ -335,6 +342,9 @@ sudo journalctl -xe -u gunicorn_privycld.service
 
 
 ## Docker
+### Voraussetzungen
+Schritte aus Kapitel [Voraussetzungen](#voraussetzungen) und [Zielhosts vorbereiten](#zielhosts-vorbereiten) durchführen
+
 ### Image lokal erstellen 
 ```bash
 sudo apt install -y docker.io
@@ -370,7 +380,6 @@ docker pull codeberg.org/creadesk/privycloud:latest
 mkdir -p ./zdockerdata/media
 mkdir -p ./zdockerdata/logs
 mkdir -p ./zdockerdata/db
-mkdir -p ./zdockerdata/keys
 ```
 ### Container starten
 ```bash
@@ -382,7 +391,9 @@ docker run -d \
   -v "$(pwd)/zdockerdata/media:/app/media" \
   -v "$(pwd)/zdockerdata/logs:/app/logs" \
   -v "$(pwd)/zdockerdata/db:/app/db" \
-  -v "$(pwd)/zdockerdata/keys:/app/keys" \
+  -v ~/.ssh:/home/<user>/.ssh:ro \
+  -v ${SSH_AUTH_SOCK}:/ssh-agent \
+  -e SSH_AUTH_SOCK=/ssh-agent \
   -e DJANGO_SUPERUSER_USERNAME=<geheim> \
   -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
   -e SECRET_KEY=django-insecure-<geheime_lange_zeichenkette> \
@@ -398,15 +409,7 @@ docker run -d \
   -e REDIS_SERVER_DB=<db_redis_server> \
   <docker_image_name>
 ```
-### Keys für Zielserver bereitstellen
-```bash
-cp ~/.ssh/deploy_key ./keys/
-cp ~/.ssh/deploy_key.pub ./keys/
-```
-### Keys für Zielserver in Datenbank verknüpfen
-- am Admin Panel anmelden
-- Rubrik "PAAS" --> Tabelle "Target Hosts" --> Datensatz anlegen
-- am entsprechenden Datensatz in das Feld "Ssh key path" folgendes eintragen: "/app/keys/deploy_key" 
+
 
 ## Lizenz
 
