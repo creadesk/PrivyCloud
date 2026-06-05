@@ -4,7 +4,7 @@ FROM python:3.12-slim AS builder
 # System‑Dependencies (ohne `apt-get update`‑Cache)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libpq-dev gcc libssl-dev ca-certificates && \
+        libpq-dev gcc libssl-dev ca-certificates openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
 # Arbeitsverzeichnis

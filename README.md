@@ -257,10 +257,6 @@ sudo chown <app_user>:<app_user> ~/.ssh/deploy_key
 sudo chmod 600 ~/.ssh/deploy_key
 ```
 
-#### Hostname, IP und Key-Verknüpfung setzen
-
-Die Pflege erfolgt über die Admin-Web-Oberfläche --> Rubrik "PAAS" --> "Target Hosts".
-
 #### ssh Konfiguration auf lokalem System
 ```bash
 nano ~/.ssh/config
@@ -392,8 +388,6 @@ docker run -d \
   -v "$(pwd)/zdockerdata/logs:/app/logs" \
   -v "$(pwd)/zdockerdata/db:/app/db" \
   -v ~/.ssh:/home/<user>/.ssh:ro \
-  -v ${SSH_AUTH_SOCK}:/ssh-agent \
-  -e SSH_AUTH_SOCK=/ssh-agent \
   -e DJANGO_SUPERUSER_USERNAME=<geheim> \
   -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
   -e SECRET_KEY=django-insecure-<geheime_lange_zeichenkette> \
