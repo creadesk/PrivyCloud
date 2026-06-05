@@ -21,7 +21,7 @@ FROM python:3.12-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        openssh-client ca-certificates && \
+        openssh-client ca-certificates gosu && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1

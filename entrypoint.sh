@@ -2,6 +2,29 @@
 set -e pipefail
 trap "kill 0" SIGTERM SIGINT
 
+# 0. appuser anlegen
+# UID/GID müssen über docker run übergeben werden
+: "${UID:?UID not set}"
+: "${GID:?GID not set}"
+
+# Gruppe anlegen, falls nicht vorhanden
+if ! getent group appgroup >/dev/null 2>&1; then
+    groupadd -g "$GID" appgroup
+fi
+
+# User anlegen, falls nicht vorhanden
+if ! id appuser >/dev/null 2>&1; then
+    useradd \
+        --uid "$UID" \
+        --gid "$GID" \
+        --create-home \
+        --shell /bin/bash \
+        appuser
+fi
+
+exec gosu appuser "$@"
+
+
 # 1. Optional: Datenbank‑URL aus Umgebungs‑Variablen setzen (default SQLite)
 : "${DJANGO_SETTINGS_MODULE:=core.settings}"
 : "${DJANGO_SECRET_KEY:='dev-secret-key'}"
