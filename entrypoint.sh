@@ -6,23 +6,25 @@ trap "kill 0" SIGTERM SIGINT
 # UID/GID müssen über docker run übergeben werden
 : "${HOST_UID:?HOST_UID not set}"
 : "${HOST_GID:?HOST_GID not set}"
+: "${HOST_UNAME:?HOST_UNAME not set}"
+: "${HOST_GNAME:?HOST_GNAME not set}"
 
 # Gruppe anlegen, falls nicht vorhanden
-if ! getent group appgroup >/dev/null 2>&1; then
-    groupadd -g "$HOST_GID" appgroup
+if ! getent group "$HOST_GNAME" >/dev/null 2>&1; then
+    groupadd -g "$HOST_GID" "$HOST_GNAME"
 fi
 
 # User anlegen, falls nicht vorhanden
-if ! id appuser >/dev/null 2>&1; then
+if ! id "$HOST_UNAME" >/dev/null 2>&1; then
     useradd \
         --uid "$HOST_UID" \
         --gid "$HOST_GID" \
         --create-home \
         --shell /bin/bash \
-        appuser
+        "$HOST_UNAME"
 fi
 
-exec gosu appuser "$@"
+exec gosu "$HOST_UNAME" "$@"
 
 
 # 1. Optional: Datenbank‑URL aus Umgebungs‑Variablen setzen (default SQLite)

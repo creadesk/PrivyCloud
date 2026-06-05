@@ -390,6 +390,8 @@ docker run -d \
   -v ~/.ssh:/home/appuser/.ssh:ro \
   -e HOST_UID=$(id -u) \
   -e HOST_GID=$(id -g) \
+  -e HOST_UNAME=$(id -un) \
+  -e HOST_GNAME=$(id -gn) \
   -e DJANGO_SUPERUSER_USERNAME=<geheim> \
   -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
   -e SECRET_KEY=django-insecure-<geheime_lange_zeichenkette> \
