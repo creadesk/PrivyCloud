@@ -4,7 +4,7 @@ FROM python:3.12-slim AS builder
 # System‑Dependencies (ohne `apt-get update`‑Cache)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libpq-dev gcc libssl-dev ca-certificates openssh-client && \
+        libpq-dev gcc libssl-dev ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Arbeitsverzeichnis
@@ -18,6 +18,11 @@ RUN --mount=type=cache,target=/root/.cache \
 
 # ---- Stage 2: Runtime ----
 FROM python:3.12-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        openssh-client ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
