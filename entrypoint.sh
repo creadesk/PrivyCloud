@@ -37,11 +37,10 @@ if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; t
   USER_EXISTS=$(python manage.py check_superuser)
   if [ "$USER_EXISTS" = "False" ]; then
       echo "Superuser does not exist – creating…"
-      DJANGO_SUPERUSER_EMAIL="${DJANGO_SUPERUSER_EMAIL:-admin@example.com}" \
       python manage.py createsuperuser \
           --noinput \
           --username "${DJANGO_SUPERUSER_USERNAME}" \
-          --email "${DJANGO_SUPERUSER_EMAIL}"
+          --email "${DJANGO_SUPERUSER_EMAIL:-admin@example.com}"
   else
       echo "Superuser ${DJANGO_SUPERUSER_USERNAME} already exists – skipping creation."
   fi
