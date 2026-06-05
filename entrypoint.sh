@@ -3,18 +3,15 @@ set -euo pipefail
 trap "kill 0" SIGTERM SIGINT
 
 # 0. appuser anlegen
-# UID/GID müssen über docker run übergeben werden
 : "${HOST_UID:?HOST_UID not set}"
 : "${HOST_GID:?HOST_GID not set}"
 : "${HOST_UNAME:?HOST_UNAME not set}"
 : "${HOST_GNAME:?HOST_GNAME not set}"
 
-# Gruppe anlegen, falls nicht vorhanden
 if ! getent group "$HOST_GNAME" >/dev/null 2>&1; then
     groupadd -g "$HOST_GID" "$HOST_GNAME"
 fi
 
-# User anlegen, falls nicht vorhanden
 if ! id "$HOST_UNAME" >/dev/null 2>&1; then
     useradd \
         --uid "$HOST_UID" \
@@ -24,32 +21,22 @@ if ! id "$HOST_UNAME" >/dev/null 2>&1; then
         "$HOST_UNAME"
 fi
 
-exec gosu "$HOST_UNAME" "$@"
+# 1. Alles Nötige als der App-User ausführen
+gosu "$HOST_UNAME" bash <<'EOF'
+set -euo pipefail
 
-
-# 1. Optional: Datenbank‑URL aus Umgebungs‑Variablen setzen (default SQLite)
 : "${DJANGO_SETTINGS_MODULE:=core.settings}"
 : "${DJANGO_SECRET_KEY:='dev-secret-key'}"
 : "${DJANGO_ALLOWED_HOSTS:=*}"
 
-# 2. Datenbank‑migrationen durchführen (bei SQLite sind sie trivial)
 echo "Running migrations..."
 python manage.py migrate --noinput
 
-# ------------------------------------------------------------------
-# 3. Super‑User erzeugen (falls noch nicht vorhanden)
-# ------------------------------------------------------------------
-# Nur wenn sowohl Benutzername als auch Passwort definiert sind
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
   echo "Preparing to create superuser: ${DJANGO_SUPERUSER_USERNAME}"
-
-  # Prüfen, ob der User schon existiert (Python‑Shell)
   USER_EXISTS=$(python manage.py check_superuser)
-
   if [ "$USER_EXISTS" = "False" ]; then
       echo "Superuser does not exist – creating…"
-
-      # Das Passwort wird intern aus DJANGO_SUPERUSER_PASSWORD gelesen
       DJANGO_SUPERUSER_EMAIL="${DJANGO_SUPERUSER_EMAIL:-admin@example.com}" \
       python manage.py createsuperuser \
           --noinput \
@@ -62,7 +49,6 @@ else
   echo "DJANGO_SUPERUSER_USERNAME and/or DJANGO_SUPERUSER_PASSWORD not set – skipping superuser creation."
 fi
 
-# 4. Startkonfiguration der Datenbank (siehe "paas/management/commands/db_start_config.py")
 python manage.py db_start_config
 
 echo "Starte Celery Worker"
@@ -83,3 +69,4 @@ echo "Starte Gunicorn (foreground)"
 exec gunicorn core.wsgi:application \
       --bind 0.0.0.0:8000 \
       --workers 3
+EOF

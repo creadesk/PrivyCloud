@@ -380,14 +380,13 @@ mkdir -p ./zdockerdata/db
 ### Container starten
 ```bash
 docker run -d \
-  --name privycloud \
-  --user "$(id -u):$(id -g)" \
+  --name "privycloud" \
   -p 8000:8000 \
   -p 5555:5555 \
   -v "$(pwd)/zdockerdata/media:/app/media" \
   -v "$(pwd)/zdockerdata/logs:/app/logs" \
   -v "$(pwd)/zdockerdata/db:/app/db" \
-  -v ~/.ssh:/home/appuser/.ssh:ro \
+  -v ~/.ssh:/home/$(id -un)/.ssh:ro \
   -e HOST_UID=$(id -u) \
   -e HOST_GID=$(id -g) \
   -e HOST_UNAME=$(id -un) \
