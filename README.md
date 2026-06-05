@@ -387,7 +387,7 @@ docker run -d \
   -v "$(pwd)/zdockerdata/media:/app/media" \
   -v "$(pwd)/zdockerdata/logs:/app/logs" \
   -v "$(pwd)/zdockerdata/db:/app/db" \
-  -v ~/.ssh:/home/<user>/.ssh:ro \
+  -v ~/.ssh:/home/root/.ssh:ro \
   -e DJANGO_SUPERUSER_USERNAME=<geheim> \
   -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
   -e SECRET_KEY=django-insecure-<geheime_lange_zeichenkette> \
