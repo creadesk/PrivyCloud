@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-set -e pipefail
+set -euo pipefail
 trap "kill 0" SIGTERM SIGINT
 
 # 0. appuser anlegen
 # UID/GID müssen über docker run übergeben werden
-: "${UID:?UID not set}"
-: "${GID:?GID not set}"
+: "${HOST_UID:?HOST_UID not set}"
+: "${HOST_GID:?HOST_GID not set}"
 
 # Gruppe anlegen, falls nicht vorhanden
 if ! getent group appgroup >/dev/null 2>&1; then
-    groupadd -g "$GID" appgroup
+    groupadd -g "$HOST_GID" appgroup
 fi
 
 # User anlegen, falls nicht vorhanden
 if ! id appuser >/dev/null 2>&1; then
     useradd \
-        --uid "$UID" \
-        --gid "$GID" \
+        --uid "$HOST_UID" \
+        --gid "$HOST_GID" \
         --create-home \
         --shell /bin/bash \
         appuser

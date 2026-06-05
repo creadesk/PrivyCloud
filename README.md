@@ -388,8 +388,8 @@ docker run -d \
   -v "$(pwd)/zdockerdata/logs:/app/logs" \
   -v "$(pwd)/zdockerdata/db:/app/db" \
   -v ~/.ssh:/home/appuser/.ssh:ro \
-  -e UID=$(id -u) \
-  -e GID=$(id -g) \
+  -e HOST_UID=$(id -u) \
+  -e HOST_GID=$(id -g) \
   -e DJANGO_SUPERUSER_USERNAME=<geheim> \
   -e DJANGO_SUPERUSER_PASSWORD=<geheim> \
   -e SECRET_KEY=django-insecure-<geheime_lange_zeichenkette> \
@@ -404,6 +404,7 @@ docker run -d \
   -e REDIS_SERVER_PORT=<port_redis_server> \
   -e REDIS_SERVER_DB=<db_redis_server> \
   <docker_image_name>
+  bash
 ```
 
 
