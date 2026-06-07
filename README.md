@@ -197,7 +197,7 @@ sudo passwd deploy
 sudo usermod -aG docker deploy
 ```
 
-#### Auf dem Celery‑Host (z.B. dein lokaler Entwicklungsrechner)
+#### Auf dem Master-Host
 ```bash
 ssh-keygen -t ed25519 -C "celery-deploy-key" -f ~/.ssh/deploy_key
 --> key ohne Passphrase, Passphrase Abfrage mit Enter überspringen

@@ -66,6 +66,7 @@ celery -A core.celery flower \
 
 echo "Starte Gunicorn (foreground)"
 exec gunicorn core.wsgi:application \
+      --timeout 550 \
       --bind 0.0.0.0:8000 \
       --workers 3
 EOF
