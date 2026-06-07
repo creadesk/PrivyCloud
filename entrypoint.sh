@@ -21,6 +21,8 @@ if ! id "$HOST_UNAME" >/dev/null 2>&1; then
         "$HOST_UNAME"
 fi
 
+chown -R "$HOST_UNAME":"$HOST_GNAME" /app
+
 # 1. Alles Nötige als der App-User ausführen
 gosu "$HOST_UNAME" bash <<'EOF'
 set -euo pipefail
