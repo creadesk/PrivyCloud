@@ -21,7 +21,7 @@ FROM python:3.12-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        openssh-client ca-certificates gosu && \
+        openssh-client ca-certificates gosu tini && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -38,6 +38,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy project source (ignores .dockerignore)
 COPY . .
+RUN chmod +x /app/startup.sh
 
 # Optional: Permissions – keep everything readable
 RUN chmod -R u+rwX /app
@@ -45,7 +46,7 @@ RUN chmod -R u+rwX /app
 # We use an entrypoint script so that every `docker run` triggers it
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 
 # Expose the port Django will listen on
 EXPOSE 8000
@@ -53,4 +54,4 @@ EXPOSE 8000
 EXPOSE 5555
 
 # Default command (overridden by entrypoint)
-CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+#CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

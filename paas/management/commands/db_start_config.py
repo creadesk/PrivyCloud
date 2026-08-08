@@ -164,7 +164,8 @@ http://<onion-adresse>:<port>/v1/qrcodelink?device_name=signal-api', 1, 8080, 1,
 (24, 'immich-server-data', '/usr/src/app/upload', 25),
 (26, '/etc/localtime', '/etc/localtime:ro', 25),
 (27, 'immich-db-data', '/var/lib/postgresql/data', 26),
-(28, 'nextcloud-data', '/var/www/html', 28);
+(28, 'nextcloud-data', '/var/www/html', 28),
+(29, 'uptime-kuma-data', '/app/data', 2);
             """
         ]
 

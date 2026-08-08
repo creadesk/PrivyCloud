@@ -64,6 +64,22 @@
     sudo ufw allow 6379
     sudo ufw allow 8001
     ```
+- Installation REDIS ohne Docker
+    ```bash
+    sudo apt install -y redis-server
+    sudo systemctl enable redis-server
+    sudo systemctl start redis-server
+
+    # Prüfen
+    sudo systemctl status redis-server
+    redis-cli ping
+    # -> PONG
+    
+    # Wenn Redis auch von anderen Rechnern erreichbar sein soll:
+    sudo nano /etc/redis/redis.conf
+      --> bind 0.0.0.0
+      --> protected-mode no
+    ```
 
 ## Einrichtung
 
