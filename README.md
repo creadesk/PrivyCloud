@@ -17,7 +17,7 @@
 
 ## Features
 
-- Docker‑basierte App‑Deployments welche als TOR-Hidden-Service veröffentlicht werden
+- Docker‑basierte App‑Deployments welche als TOR-Hidden-Service veröffentlicht werden können.
 
 ## Voraussetzungen
 
@@ -79,6 +79,7 @@
     sudo nano /etc/redis/redis.conf
       --> bind 0.0.0.0
       --> protected-mode no
+    sudo systemctl restart redis-server.service
     ```
 
 ## Einrichtung
@@ -357,11 +358,15 @@ sudo journalctl -xe -u gunicorn_privycld.service
 ### Voraussetzungen
 Schritte aus Kapitel [Voraussetzungen](#voraussetzungen) und [Zielhosts vorbereiten](#zielhosts-vorbereiten) durchführen
 
+User in Docker Gruppe aufnehmen
+```bash
+sudo usermod -aG docker $USER
+```
+
 ### Image lokal erstellen 
 ```bash
 sudo apt install -y docker.io
 sudo apt install -y docker-buildx
-sudo usermod -aG docker $USER
 sudo reboot
 
 sudo apt install -y git
@@ -421,7 +426,6 @@ docker run -d \
   -e REDIS_SERVER_PORT=<port_redis_server> \
   -e REDIS_SERVER_DB=<db_redis_server> \
   <docker_image_name>
-  bash
 ```
 
 
