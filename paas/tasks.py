@@ -700,6 +700,8 @@ WantedBy=default.target
             ]
             if app_def.use_deploy_user:
                 cmd_parts.insert(1, f"--user {uid}:{gid}")  # wird nur hinzugefügt, wenn true
+            if app_def.use_hostpid_namespace:
+                cmd_parts.append(f"--pid host")
             if app_def.app_port_intern_web != 1:
                 cmd_parts.append(f"-p {free_port_web}:{app_def.app_port_intern_web}")
             if app_def.app_port_intern_api != 1:

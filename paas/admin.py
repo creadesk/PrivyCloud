@@ -22,7 +22,7 @@ class AppImageTagAdmin(admin.ModelAdmin):
 
 @admin.register(AppDefinition)
 class AppDefinitionAdmin(admin.ModelAdmin):
-  list_display = ('id', 'name', 'display_name', 'docker_image', 'default_duration', 'app_port_intern_web', 'app_port_intern_api', 'hiddenservice_port_web', 'hiddenservice_port_api', 'use_deploy_user', 'no_hidden_service')
+  list_display = ('id', 'name', 'display_name', 'docker_image', 'default_duration', 'app_port_intern_web', 'app_port_intern_api', 'hiddenservice_port_web', 'hiddenservice_port_api', 'use_deploy_user', 'no_hidden_service', 'use_hostpid_namespace')
   search_fields = ('name', 'display_name')
 
 @admin.register(RemoteHost)

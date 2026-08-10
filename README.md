@@ -2,7 +2,7 @@
 
 > Eine Django‑basierte Plattform, die es Nutzern ermöglicht,
 > Container‑Apps zu deployen, zu skalieren und zu verwalten.
-> Die bereitgestellten Apps werden als TOR-Hidden-Service angeboten. 
+> Die bereitgestellten Apps können als TOR-Hidden-Service veröffentlicht werden. 
 
 # Inhaltsverzeichnis
 

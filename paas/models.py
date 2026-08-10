@@ -33,6 +33,7 @@ class AppDefinition(models.Model):
   hiddenservice_port_api = models.PositiveIntegerField(default=1)  # API-Port für onion-service
   use_deploy_user = models.BooleanField(default=False, help_text="Container mit User {uid}:{gid} starten")
   no_hidden_service = models.BooleanField(default=False, help_text="ohne Hidden-Service")
+  use_hostpid_namespace = models.BooleanField(default=False, help_text="Container verwendet den PID-Namespace des Hosts")
 
   class Meta:
       ordering = ['display_name']

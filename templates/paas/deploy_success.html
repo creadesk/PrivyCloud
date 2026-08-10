@@ -31,17 +31,31 @@
       <dd>{{ provision.app.description }}</dd>
 
        <!-- Web-Adresse, wenn vorhanden -->
-      <dt>Adresse(Web)</dt>
+      <dt>Adresse(Onion)</dt>
       {% if provision.app.app_port_intern_web != 1 and provision.onion_address != "" %}
-        <dd><a href="{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}">{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}</a></dd>
+        <dd><a href="http://{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}" target="_blank">http://{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}</a></dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <dt>Adresse(Clearnet)</dt>
+      {% if provision.app.app_port_intern_web != 1 and provision.host != "" %}
+        <dd><a href="http://{{ provision.host }}:{{ provision.port }}" target="_blank">http://{{ provision.host }}:{{ provision.port }}</a></dd>
       {% else %}
           <dd>X</dd>
       {% endif %}
 
       <!-- API-Adresse, wenn vorhanden -->
-      <dt>Adresse(API)</dt>
+      <dt>Adresse-API(Onion)</dt>
       {% if provision.app.app_port_intern_api != 1 and provision.onion_address != "" %}
           <dd>{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_api }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <dt>Adresse-API(Clearnet)</dt>
+      {% if provision.app.app_port_intern_api != 1 and provision.host != "" %}
+          <dd>{{ provision.host }}:{{ provision.port2 }}</dd>
       {% else %}
           <dd>X</dd>
       {% endif %}

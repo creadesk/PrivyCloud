@@ -1,8 +1,15 @@
 {% extends "../base.html" %}
 {% load static %}
+
 {% block title %}{{ PLATFORM_NAME }} - PaaS-MyApps{% endblock %}
-{% block stylesheet %}{% static 'paas/style_my_apps.css' %}{% endblock %}
+
+{% block stylesheet %}
+    {{ block.super }}
+    {% static 'paas/style_my_apps.css' %}
+{% endblock %}
+
 {% block headline %}{{ PLATFORM_NAME }} - PaaS-MyApps{% endblock %}
+
 {% block app_buttons %}
 <form method="POST" action="{% url 'dashboard' %}">
     {% csrf_token %}
@@ -11,9 +18,12 @@
     </div>
 </form>
 {% endblock %}
+
 {% block content %}
-<div>
-    <div>
+<div class="my-apps-wrapper">
+
+    <!-- New‑app button -->
+    <div class="new-app-row">
         <form method="POST" action="{% url 'paas_select_app' %}">
             {% csrf_token %}
             <div class="pagination">
@@ -21,139 +31,146 @@
             </div>
         </form>
     </div>
+
     {% if provisions %}
-      <table>
-          <thead>
-              <tr>
-                  <th>App</th>
-                  {% if request.user.is_authenticated and request.user.is_superuser %}
-                    <!-- ---------- Zielhost, nur für superuser ---------- -->
-                    <th>Ziel-Host</th>
-                  {% endif %}
-                  <th>Web</th>
-                  <th>API</th>
-                  <th>Host Port1</th>
-                  <th>Host Port2</th>
-                  <th>Startzeit(UTC)</th>
-                  <th>Verfallszeit(UTC)</th>
-                  <th>Status</th>
-                  <th>Aktionen</th>
-              </tr>
-          </thead>
-          <tbody>
-              {% for p in provisions %}
-                  <tr>
-                      <td>{{ p.app.display_name }}</td>
-                      {% if request.user.is_authenticated and request.user.is_superuser %}
-                        <!-- ---------- Zielhost, nur für superuser ---------- -->
-                        <td>{{ p.host }}</td>
-                      {% endif %}
-                      <!-- Web-Adresse, wenn vorhanden -->
-                      {% if p.app.app_port_intern_web != 1 and p.onion_address %}
-                        <td><a href="{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Link</a></td>
-                      {% else %}
-                          <td>X</td>
-                      {% endif %}
+        <!-- Table – wrapped in a responsive container -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>App</th>
+                        {% if request.user.is_authenticated and request.user.is_superuser %}
+                            <th>Ziel-Host</th>
+                        {% endif %}
+                        <th>Web</th>
+                        <th>API</th>
+                        <th>Host Port1</th>
+                        <th>Host Port2</th>
+                        <th>Startzeit(UTC)</th>
+                        <th>Verfallszeit(UTC)</th>
+                        <th>Status</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in provisions %}
+                    <tr>
+                        <td>{{ p.app.display_name }}</td>
+                        {% if request.user.is_authenticated and request.user.is_superuser %}
+                            <td>{{ p.host }}</td>
+                        {% endif %}
+                        <td>
+                            {% if p.app.app_port_intern_web != 1 %}
+                                 {% if p.onion_address %}
+                                 <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Onion</a>
+                                 {% endif %}
+                                 {% if p.host and p.port %}
+                                 <a href="http://{{ p.host }}:{{ p.port }}" target="_blank">Clearnet</a>
+                                 {% endif %}
+                            {% else %}
+                                X
+                            {% endif %}
+                        </td>
 
-                      <!-- API-Adresse, wenn vorhanden -->
-                      {% if p.app.app_port_intern_api != 1 and p.onion_address %}
-                          <td><a href="{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Link</a></td>
-                      {% else %}
-                          <td>X</td>
-                      {% endif %}
+                        <td>
+                            {% if p.app.app_port_intern_api != 1 %}
+                                {% if p.onion_address %}
+                                <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Onion</a>
+                                {% endif %}
+                                {% if p.host and p.port2 %}
+                                <a href="http://{{ p.host }}:{{ p.port2 }}" target="_blank">Clearnet</a>
+                                {% endif %}
+                            {% else %}
+                                X
+                            {% endif %}
+                        </td>
 
-                      {% if p.app.app_port_intern_web != 1 and p.port %}
-                          <td>{{ p.port }}</td>
-                      {% else %}
-                          <td>X</td>
-                      {% endif %}
+                        <td>
+                            {% if p.app.app_port_intern_web != 1 and p.port %}
+                                {{ p.port }}
+                            {% else %}
+                                X
+                            {% endif %}
+                        </td>
 
-                      {% if p.app.app_port_intern_api != 1 and p.port2 %}
-                          <td>{{ p.port2 }}</td>
-                      {% else %}
-                          <td>X</td>
-                      {% endif %}
+                        <td>
+                            {% if p.app.app_port_intern_api != 1 and p.port2 %}
+                                {{ p.port2 }}
+                            {% else %}
+                                X
+                            {% endif %}
+                        </td>
 
-                      <td>{{ p.started_at|date:"DATETIME_FORMAT" }}</td>
-                      <td>{{ p.expires_at|date:"DATETIME_FORMAT" }}</td>
-                      <td>
-                          {% if p.status == 'running' %}
-                              <span>läuft</span>
-                          {% elif p.status == 'pending' %}
-                              <span>wird gestartet</span>
-                          {% elif p.status == 'deleting' %}
-                              <span>löschen</span>
-                          {% elif p.status == 'finished' %}
-                              <span>abgeschlossen</span>
-                          {% elif p.status == 'deleted' %}
-                              <span>gelöscht</span>
-                          {% elif p.status == 'stopped' %}
-                              <span>gestoppt</span>
-                          {% elif p.status == 'stopping' %}
-                              <span>stoppend</span>
-                          {% elif p.status == 'starting' %}
-                              <span>startend</span>
-                          {% else %}
-                              <span>fehlerhaft</span>
-                          {% endif %}
-                      </td>
-                      <td>
+                        <td>{{ p.started_at|date:"DATETIME_FORMAT" }}</td>
+                        <td>{{ p.expires_at|date:"DATETIME_FORMAT" }}</td>
 
-                          {% if p.status == 'running' or p.status == 'deleting' or p.status == 'stopped' or p.status == 'stopping' or p.status == 'starting' or p.status == 'error' %}
-                              <form method="post" action="{% url 'paas_delete_app' p.pk %}" style="display:inline;">
-                                  {% csrf_token %}
-                                  <input type="hidden" name="first_step" value="1">
-                                  <button type="submit">App löschen</button>
-                              </form>
-                          {% else %}
-                              <span>–</span>
-                          {% endif %}
+                        <td class="status-cell">
+                            {% if p.status == 'running' %}
+                                <span class="status-running">läuft</span>
+                            {% elif p.status == 'pending' %}
+                                <span class="status-pending">wird gestartet</span>
+                            {% elif p.status == 'deleting' %}
+                                <span class="status-deleting">löschen</span>
+                            {% elif p.status == 'finished' %}
+                                <span class="status-finished">abgeschlossen</span>
+                            {% elif p.status == 'deleted' %}
+                                <span class="status-deleted">gelöscht</span>
+                            {% elif p.status == 'stopped' %}
+                                <span class="status-stopped">gestoppt</span>
+                            {% elif p.status == 'stopping' %}
+                                <span class="status-stopping">stoppend</span>
+                            {% elif p.status == 'starting' %}
+                                <span class="status-starting">startend</span>
+                            {% else %}
+                                <span class="status-error">fehlerhaft</span>
+                            {% endif %}
+                        </td>
 
-                          {% if p.status == 'running' %}
-                              <form method="post" action="{% url 'paas_stop_app' p.pk %}" style="display:inline;">
-                                  {% csrf_token %}
-                                  <button type="submit">App stoppen</button>
-                              </form>
-                          {% else %}
-                              <span>–</span>
-                          {% endif %}
+                        <td class="action-cell">
+                            {% if p.status in 'running,deleting,stopped,stopping,starting,error' %}
+                                <form method="post" action="{% url 'paas_delete_app' p.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="first_step" value="1">
+                                    <button type="submit">App löschen</button>
+                                </form>
+                            {% endif %}
 
-                          {% if p.status == 'stopped' %}
-                              <form method="post" action="{% url 'paas_start_app' p.pk %}" style="display:inline;">
-                                  {% csrf_token %}
-                                  <button type="submit">App starten</button>
-                              </form>
-                          {% else %}
-                              <span>–</span>
-                          {% endif %}
+                            {% if p.status == 'running' %}
+                                <form method="post" action="{% url 'paas_stop_app' p.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit">App stoppen</button>
+                                </form>
+                            {% endif %}
 
-                      </td>
-                  </tr>
+                            {% if p.status == 'stopped' %}
+                                <form method="post" action="{% url 'paas_start_app' p.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit">App starten</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
 
-                  {# ------------- Panel unter jeder Provision‑Zeile ------------- #}
-                  <tr class="panel-row">
-                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}" style="padding: 0;">
+                    <!-- Detail‑panel under every provision row -->
+                    <tr class="panel-row">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}">
                             <details class="app-image-panel">
                                 <summary class="panel-summary">
-                                    <!-- Hier kann ein Icon oder Text stehen, der beim Klicken den Panel toggelt -->
-
-                                    <!-- Optional: ein kleines “+”‑/“-”‑Icon, das sich automatisch ändert -->
+                                    <span class="panel-label">Image‑Info</span>
                                     <span class="toggle-icon" aria-hidden="true"></span>
                                 </summary>
 
-                                <form method="post" action="{% url 'update_provisioned_app' %}" >
+                                <form method="post" action="{% url 'update_provisioned_app' %}">
                                     {% csrf_token %}
-                                    <!-- 1. ID der Bereitstellung übertragen  -->
                                     <input type="hidden" name="provision_id" value="{{ p.id }}">
 
-                                    <!-- Das eigentliche Panel‑Inhalt: Button + weitere Infos -->
-                                    <div class="panel-content" style="padding:0.5rem 1rem; display:flex; align-items:center; gap:1rem;">
+                                    <div class="panel-content">
                                         <span class="placeholder">aktuelles Image: {{ p.image }}</span>
+
                                         <span class="placeholder">
                                             verfügbare Images:
                                             {% if p.available_images %}
-                                                <!--<select name="image-{{ p.id }}" class="image-select" data-provision-id="{{ p.id }}">-->
-                                                <select name="new_image" class="image-select" style="margin:0;">
+                                                <select name="new_image" class="image-select">
                                                     <option value="" selected></option>
                                                     {% for img in p.available_images %}
                                                         {% if img != p.image %}
@@ -167,19 +184,20 @@
                                                 keine Tags vorhanden
                                             {% endif %}
                                         </span>
-                                        <button type="submit" class="update-btn" style="padding:0.5rem 1rem;">Update durchführen</button>
-                                    </div>
 
+                                        <button type="submit" class="update-btn">Update durchführen</button>
+                                    </div>
                                 </form>
                             </details>
                         </td>
-                  </tr>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-              {% endfor %}
-          </tbody>
-      </table>
-  {% else %}
-      <p class="no-apps">Du hast noch keine Apps bereitgestellt.</p>
-  {% endif %}
+    {% else %}
+        <p class="no-apps">Du hast noch keine Apps bereitgestellt.</p>
+    {% endif %}
 </div>
 {% endblock %}
