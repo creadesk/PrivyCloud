@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 import uuid
 import docker
 import shlex
+import paramiko
 
 
 
@@ -128,6 +129,79 @@ class RemoteHost(models.Model):
     def __str__(self):
         return f"{self.hostname}"
 
+    # ----------------------------------------------------------------
+    #  Hilfs‑Methode, die über SSH die Docker‑Images eines Hosts
+    #  zurückliefert.  Für jeden Image‑Eintrag wird zusätzlich
+    #  ermittelt, ob das Image gerade in einem laufenden Container
+    #  benutzt wird.
+    # ----------------------------------------------------------------
+    def docker_images(self):
+        """
+        Rückgabe: Liste von Dictionaries
+
+        [
+            {
+                'repository': 'myapp',
+                'tag': 'v1.0',
+                'image_id': '2c6c9d0b9f3a',
+                'size': '512MB',
+                'used': True,
+            },
+            ...
+        ]
+        """
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        try:
+            # -- 1. SSH‑Verbindung herstellen
+            client.connect(
+                hostname=self.hostname,
+                username=self.ssh_user,
+                key_filename=self.ssh_key_path,  # ausschließlich das File benutzen
+                timeout=10,
+                allow_agent=False,  # keine Agent‑Keys
+                look_for_keys=False,  # keine weiteren Keys suchen
+            )
+        except Exception as exc:
+            # Verbindungs‑ oder Authentifizierungs‑Fehler → leere Liste
+            client.close()
+            return []
+
+        try:
+            # --------------------------------------------------------------
+            # 2. Welche Images werden gerade verwendet? (docker ps)
+            # --------------------------------------------------------------
+            used_cmd = r'docker ps --format "{{.Image}}"'
+            stdin, stdout, stderr = client.exec_command(used_cmd)
+            used_imgs = set(line.strip() for line in stdout.read().decode().splitlines())
+
+            # --------------------------------------------------------------
+            # 3. Alle Images holen (docker images)
+            # --------------------------------------------------------------
+            img_cmd = (
+                r'docker images '
+                r'--format "{{.Repository}} {{.Tag}} {{.ID}} {{.Size}}"'
+            )
+            stdin, stdout, stderr = client.exec_command(img_cmd)
+            raw = stdout.read().decode()
+
+            images = []
+            for line in raw.splitlines():
+                if not line.strip():
+                    continue
+                repo, tag, img_id, size = line.split(maxsplit=3)
+                used = f"{repo}:{tag}" in used_imgs
+                images.append({
+                    'repository': repo,
+                    'tag': tag,
+                    'image_id': img_id,
+                    'size': size,
+                    'used': used,
+                })
+            return images
+        finally:
+            client.close()
 
 class ProvisionedApp(models.Model):
   """Aufgezeichnete Bereitstellungen."""

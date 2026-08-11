@@ -1,0 +1,69 @@
+{% extends "../base.html" %}
+{% load static %}
+
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Images{% endblock %}
+
+{% block stylesheet %}
+    {{ block.super }}
+    {% static 'paas/style_images.css' %}
+{% endblock %}
+
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Images{% endblock %}
+
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block content %}
+<h1>Docker Images – {{ PLATFORM_NAME }}</h1>
+
+{% for entry in images %}
+    <h2>Host: {{ entry.host.hostname }} ({{ entry.host.ip_address }})</h2>
+    {% if entry.images %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Quelle</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Größe</th>
+                    <th>Im Einsatz?</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for img in entry.images %}
+                <tr>
+                    <td>{{ img.repository }}</td>
+                    <td>{{ img.tag }}</td>
+                    <td>{{ img.image_id }}</td>
+                    <td>{{ img.size }}</td>
+                    <td class="status-cell">
+                        {% if img.used %}
+                            <strong style="color: green;">Ja</strong>
+                        {% else %}
+                            Nein
+                        {% endif %}
+                    </td>
+                    <td class="action-cell">
+                        {% if not img.used %}
+                            <form method="post" action="{% url 'paas_delete_image' entry.host.id img.image_id %}">
+                                {% csrf_token %}
+                                <button type="submit">Image löschen</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Keine Images gefunden oder Zugriff fehlgeschlagen.</p>
+    {% endif %}
+{% endfor %}
+{% endblock %}

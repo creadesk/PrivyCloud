@@ -1,3 +1,4 @@
+import paramiko
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.shortcuts import render, redirect, get_object_or_404
@@ -15,7 +16,7 @@ from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
 
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 
 from django.contrib import messages
 
@@ -526,3 +527,92 @@ def update_provisioned_app(request):
     # 4. Weiterleitung
     print(f"Provision '{provision.container_name}' wird auf {new_image} aktualisiert.")
     return redirect('paas_my_apps')
+
+
+
+@login_required
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def images(request):
+    """
+    Liefert alle heruntergeladenen images pro host.
+    Dies darf nur der Superuser.
+    """
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Keine Berechtigung.")
+        # oder still ablehnen:
+        # return redirect('dashboard')
+
+    # Alle Hosts holen
+    hosts = RemoteHost.objects.all()
+
+    # Für jeden Host die Images abfragen
+    host_images = []
+    for host in hosts:
+        host_images.append({
+            'host': host,
+            'images': host.docker_images(),  # ← Hilfsmethode aus dem Modell
+        })
+
+    return render(request, 'paas/images.html', {
+      'images': host_images,
+      "PLATFORM_NAME": PLATFORM_NAME,
+    })
+
+@login_required
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def delete_image(request, host_id, image_id):
+    """
+    Löscht ein Docker‑Image, das auf dem Host **nicht** mehr verwendet wird.
+    Nur Superuser können dies tun.
+    """
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Keine Berechtigung.")
+
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    # Host holen
+    host = get_object_or_404(RemoteHost, pk=host_id)
+
+    # Image‑Existenz & Status prüfen
+    images = host.docker_images()                     # ← Model‑Helper
+    image = next((img for img in images if img['image_id'] == image_id), None)
+
+    if image is None:
+        messages.error(request, f"Image {image_id} nicht gefunden auf Host {host}.")
+        return redirect('paas_images')
+
+    if image['used']:
+        messages.error(request, f"Image {image_id} ist im Einsatz auf Host {host}.")
+        return redirect('paas_images')
+
+    # SSH‑Verbindung & Docker‑Remove
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        client.connect(
+            hostname=host.hostname,
+            username=host.ssh_user,
+            key_filename=host.ssh_key_path,  # ausschließlich das File nutzen
+            timeout=10,
+            allow_agent=False,
+            look_for_keys=False,
+        )
+
+        cmd = f'docker rmi {image_id}'
+        _, stdout, stderr = client.exec_command(cmd)
+
+        err = stderr.read().decode().strip()
+        if err:
+            messages.error(request, f"Löschen fehlgeschlagen auf Host {host}: {err}")
+        else:
+            messages.success(request, f"Image {image_id} erfolgreich gelöscht auf Host {host}.")
+
+    except Exception as exc:
+        messages.error(request, f"SSH error on {host}: {exc}")
+
+    finally:
+        client.close()
+
+    return redirect('paas_images')

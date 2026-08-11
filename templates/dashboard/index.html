@@ -28,5 +28,14 @@
         </form>
         <div class="description">Platform-as-a-Service (PaaS).</div>
     </div>
+    {% if request.user.is_authenticated and request.user.is_superuser %}
+    <div class="panel">
+        <form method="POST" action="{% url 'paas_images' %}">
+            {% csrf_token %}
+            <button>Image Verwaltung</button>
+        </form>
+        <div class="description">Zeigt alle heruntergeladenen Images.</div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

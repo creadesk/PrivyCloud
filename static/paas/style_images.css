@@ -1,0 +1,250 @@
+/* --------------------------------------------------------------------
+   Style für /paas/images.html
+   -------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------
+   1. Allgemeines
+   -------------------------------------------------------------------- */
+body { /* wir wollen die vorhandenen Body‑Styles aus base.css nicht überschreiben */ }
+
+/* --------------------------------------------------------------------
+   2. Table‑Wrapper
+   -------------------------------------------------------------------- */
+.table-container {
+    overflow-x: auto;            /* horizontales Scrollen bei zu breiten Tabellen */
+    margin-top: 1.5rem;
+}
+
+/* --------------------------------------------------------------------
+   3. Tabelle
+   -------------------------------------------------------------------- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 0, 0, 0.4);   /* leicht transparentes Schwarz */
+    color: #f0f0f0;
+}
+
+table th,
+table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    vertical-align: middle;
+}
+
+table th {
+    background: #3a3a3a;
+    font-weight: bold;
+    text-align: left;
+}
+
+table tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+table tr:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* --------------------------------------------------------------------
+   4. Status‑Farben
+   -------------------------------------------------------------------- */
+.status-running  span { color: #27ae60; } /* grün */
+.status-pending  span { color: #f1c40f; } /* gelb */
+.status-deleting span { color: #e67e22; } /* orange */
+.status-finished span { color: #95a5a6; } /* grau */
+.status-error    span { color: #c0392b; } /* rot */
+.status-deleted  span { color: #8e44ad; } /* violett – neuer */
+.status-stopped  span { color: #7f8c8d; } /* grau‑blau */
+.status-stopping span { color: #f39c12; } /* orange‑gelb */
+.status-starting span { color: #3498db; } /* blau */
+
+/* Status‑Texte fett */
+.status-running  span,
+.status-pending  span,
+.status-deleting span,
+.status-finished span,
+.status-error    span,
+.status-deleted  span,
+.status-stopped  span,
+.status-stopping span,
+.status-starting span {
+    font-weight: bold;
+}
+
+/* --------------------------------------------------------------------
+   5. Buttons in der Tabelle
+   -------------------------------------------------------------------- */
+table button {
+    padding: 6px 12px;
+    background: #e67e22;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+
+table button:hover { background: #d35400; }
+
+/* Inline‑Formulare */
+table form { display: inline; }
+
+/* --------------------------------------------------------------------
+   6. Pagination‑Buttons
+   -------------------------------------------------------------------- */
+.pagination button {
+    padding: 8px 16px;
+    background: #f39c12;
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color .3s;
+}
+
+.pagination button:hover { background: #e67e22; }
+
+/* --------------------------------------------------------------------
+   7. Hinweistext bei keinen Apps
+   -------------------------------------------------------------------- */
+.no-apps { text-align: center; margin-top: 2rem; color: #bbb; }
+
+/* --------------------------------------------------------------------
+   7. Responsives Verhalten
+   -------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    /* kleiner Padding */
+    table th,
+    table td { padding: 10px 8px; }
+
+    /* Pagination Button kleiner */
+    .pagination button {
+        padding: 6px 12px;
+        font-size: 0.95rem;
+    }
+
+    /* Let every action button take full width on small screens */
+    .action-cell form button {
+        width: 100%;
+        margin-top: 4px;
+    }
+}
+
+/* At <480px – show only the essential columns */
+@media (max-width: 480px) {
+    /* Hide columns 5–6 (Port1 / Port2) */
+    table th:nth-child(5),
+    table th:nth-child(6),
+    table td:nth-child(5),
+    table td:nth-child(6) { display: none; }
+
+    /* Reduce padding further */
+    table th,
+    table td { padding: 8px 6px; }
+
+    /* Collapse panel summaries to be touch‑friendly */
+    .panel-summary {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .panel-summary .toggle-icon {
+        margin-left: 0;
+        margin-top: 4px;
+    }
+
+    /* Make the image‑select drop‑down full width on mobile */
+    .image-select { width: 100%; }
+}
+
+/* --------------------------------------------------------------------
+   7. Panel (details) – schön formatiert
+   -------------------------------------------------------------------- */
+.app-image-panel {
+    border-radius: 4px;
+    margin: 0.5rem 0;
+}
+
+.panel-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    background-color: #000;
+    font-weight: 600;
+    user-select: none; /* no text selection on click */
+}
+
+.panel-summary:focus { outline: none; }
+
+.toggle-icon {
+    margin-left: auto;
+    font-size: 1.2rem;
+    transition: transform 0.2s ease;
+}
+
+.panel-summary::after { content: '+'; font-weight: bold; margin-left: 0.5rem; }
+
+.app-image-panel[open] .panel-summary::after { content: '−'; }
+
+.panel-content {
+    display: none;
+    background-color: #1c1613;
+    border-top: 1px solid #2e2017;
+}
+
+.app-image-panel[open] .panel-content { display: flex; }
+
+/* --------------------------------------------------------------------
+   8. Panel‑Content – neu: flex‑Layout + Gaps
+   -------------------------------------------------------------------- */
+.app-image-panel .panel-content {
+    display: flex;               /* Zeilen‑Layout */
+    flex-wrap: wrap;             /* Bei zu wenig Platz umbrechen */
+    align-items: center;         /* Vertikal mittig */
+    gap: 0.5rem 1rem;            /* Zwischen den Elementen Abstand */
+    background-color: #1c1613;
+    border-top: 1px solid #2e2017;
+}
+
+.app-image-panel .placeholder {
+    display: flex;               /* Damit Text und Icon (falls später) nebeneinander */
+    align-items: center;
+    font-size: 0.95rem;
+    color: #f0f0f0;
+}
+
+.app-image-panel .placeholder .image-select {
+    margin-left: 0.5rem;
+    font-size: 0.95rem;
+    padding: 4px 6px;
+}
+
+.app-image-panel .update-btn {
+    margin-left: auto;           /* Button wird am rechten Rand verschoben */
+    padding: 6px 12px;
+    background: #e67e22;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+
+.app-image-panel .update-btn:hover {
+    background: #d35400;
+}
+
+/* Mobile‑Optimierung – alles kompakt */
+@media (max-width: 480px) {
+    .app-image-panel .panel-content {
+        flex-direction: column;   /* Für Touch‑Friendly: Button unter dem Text */
+        align-items: stretch;     /* Button nimmt volle Breite ein */
+        gap: 0.6rem 0;
+    }
+
+    .app-image-panel .update-btn {
+        margin-left: 0;           /* Button wird nicht mehr am rechten Rand */
+    }
+}
