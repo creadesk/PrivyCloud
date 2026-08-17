@@ -1,4 +1,9 @@
+import hashlib
+import base64
 import os
+import rsa
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives import serialization
 import time
 import paramiko
 from pathlib import Path
@@ -300,7 +305,8 @@ def _build_torrc(app_def: AppDefinition,
                 socks_port: int,
                 hidden_dir: str,
                 free_port_web: int,
-                free_port_api: int) -> str:
+                free_port_api: int,
+                tor_auth_type=None, tor_auth_value=None) -> str:
     """
     Baut die Tor‑Konfigurations‑Datei (torrc) als String.
 
@@ -310,6 +316,8 @@ def _build_torrc(app_def: AppDefinition,
         hidden_dir     – Pfad zum Hidden‑Service‑Verzeichnis
         free_port_web  – Port, auf dem die Web‑App läuft (intern)
         free_port_api  – Port, auf dem die API läuft (intern)
+        tor_auth_type  - 'password' | 'cert' | None
+        tor_auth_value - Passwort‑String (falls tor_auth_type == 'password')
     """
     # Basis‑Zeilen – immer vorhanden
     lines = [
@@ -322,6 +330,60 @@ def _build_torrc(app_def: AppDefinition,
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_web} 127.0.0.1:{free_port_web}")
     if app_def.app_port_intern_api != 1:
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_api} 127.0.0.1:{free_port_api}")
+
+    ''' --> OBSOLET in Tor v3
+    # ---------- Tor‑Authentisierung ----------
+    if tor_auth_type == "password":
+        if tor_auth_value is None:
+            raise ValueError("tor_auth_value muss gesetzt sein, wenn tor_auth_type=='password'")
+
+        # Tor akzeptiert einen SHA‑1‑Hash des Passworts (in hex‑Form)
+        #hashed = hashlib.sha1(tor_auth_value.encode()).hexdigest()
+        hashed = hashlib.sha256(tor_auth_value.encode()).hexdigest()
+
+        # Auth‑Fragment – das ist die korrekte Syntax
+        lines.append("HiddenServiceAuth 1")  # aktiviert v3‑Auth (optional)
+        lines.append(f"HiddenServiceAuthorizeClient password {hashed}")
+
+
+    elif tor_auth_type == "cert":
+
+        # 2048‑Bit RSA‑Schlüssel erzeugen
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+        priv_bytes = key.private_bytes(
+
+            encoding=serialization.Encoding.PEM,
+
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+
+            encryption_algorithm=serialization.NoEncryption(),
+
+        )
+
+        pub_bytes = key.public_key().public_bytes(
+
+            encoding=serialization.Encoding.OpenSSH,
+
+            format=serialization.PublicFormat.OpenSSH,
+
+        )
+
+        # Tor‑Format (Onion‑Key) – das Public‑Key‑String, ohne `ssh-rsa `‑Prefix
+
+        onion_pubkey = pub_bytes.decode().strip()
+
+        lines.append("HiddenServiceAuth 2")
+
+        lines.append(f"Onion-key {onion_pubkey}")
+
+        # Wir speichern die Private‑Key‑Zeichenkette im App‑Objekt,
+
+        # damit sie später an die View zurückgegeben werden kann
+
+        app_def._tor_private_key = priv_bytes.decode()
+        '''
 
     # Alle Zeilen zu einem String mit Zeilenumbrüchen zusammenfügen
     torrc = "\n".join(lines) + "\n"   # Letztes \n für POSIX‑kompatibel
@@ -591,6 +653,95 @@ def _file_exists(ssh, path: str, timeout: int = 60, interval: float = 1.0) -> bo
     return False
 
 
+
+# ----------------------------------------------------------------------
+#  Base32 encoder for a raw 32‑byte x25519 key
+# ----------------------------------------------------------------------
+def _base32_x25519_key(key_hex: str) -> str:
+    """
+    Convert a hex string (64 chars → 32 bytes) into the 56‑char base32
+    representation that Tor expects.  Padding (`=`) is stripped.
+    """
+    raw = bytes.fromhex(key_hex)
+    if len(raw) != 32:
+        raise ValueError("Public key must be 32 bytes (64 hex chars)")
+    return base64.b32encode(raw).decode("ascii").rstrip("=")
+
+# ----------------------------------------------------------------------
+#  Write a client‑auth file
+# ----------------------------------------------------------------------
+def _write_client_auth_file(
+    ssh, hidden_dir: str, public_key_hex: str, auth_file_name: Optional[str] = None
+) -> str:
+    """
+    Create `<HiddenServiceDir>/authorized_clients/<file>.auth`
+    and return the full path that was written.
+
+    Parameters
+    ----------
+    ssh: paramiko.SSHClient
+        The SSH connection to the remote host.
+    hidden_dir: str
+        The path to the hidden‑service directory (e.g. `/home/.../.tor_hidden_myservice`).
+    public_key_hex: str
+        The x25519 public key in hex (64 chars).
+    auth_file_name: Optional[str]
+        Optional explicit file name.  If omitted a random one is chosen.
+    """
+    client_auth_dir = os.path.join(hidden_dir, "authorized_clients")
+    _run_cmd(ssh, f"mkdir -p {client_auth_dir} && chmod 700 {client_auth_dir}")
+
+    if not auth_file_name:
+        # deterministic but random‑ish name (SHA‑256 of the key)
+        auth_file_name = f"{hashlib.sha256(public_key_hex.encode()).hexdigest()}.auth"
+
+    file_path = os.path.join(client_auth_dir, auth_file_name)
+    content = f"descriptor:x25519:{_base32_x25519_key(public_key_hex)}\n"
+
+    # Use SFTP for writing the file
+    with ssh.open_sftp() as sftp:
+        with sftp.open(file_path, "w") as fp:
+            fp.write(content)
+
+    return file_path
+
+
+def _gen_x25519_keypair() -> tuple[bytes, bytes]:
+    """
+    Liefert (private_key_bytes, public_key_bytes) im Raw‑Format
+    (jeweils 32 Byte).
+    """
+    priv_key = x25519.X25519PrivateKey.generate()
+    priv_bytes = priv_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    pub_bytes = priv_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw
+    )
+    return priv_bytes, pub_bytes
+
+def _b32_encode(data: bytes) -> str:
+    """Base32‑Kodierung ohne Padding‑‘=’‑Zeichen."""
+    return base64.b32encode(data).decode("ascii").rstrip("=")
+
+def _write_authorized_client_file(ssh, hidden_dir: str, pub_b32: str):
+    """
+    Erstellt <HiddenServiceDir>/authorized_clients/<random>.auth
+    mit dem Inhalt:
+        descriptor:x25519:<public‑key‑in‑base32>
+    """
+    auth_dir = f"{hidden_dir}/authorized_clients"
+    _run_cmd(ssh, f"mkdir -p {auth_dir} && chmod 700 {auth_dir}")
+    auth_path = f"{auth_dir}/client.auth"          # Dateiname ist beliebig
+    content = f"descriptor:x25519:{pub_b32}\n"
+    with ssh.open_sftp().open(auth_path, "w") as f:
+        f.write(content)
+    return auth_path
+
+
 # ----------------------------------------------------------------------
 # Celery‑Tasks
 # ----------------------------------------------------------------------
@@ -607,7 +758,7 @@ def simple_task():
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=60)
-def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, **kwargs):
+def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, tor_auth_type=None, tor_auth_value=None, **kwargs):
     """Deploy einer App als Docker‑Container + Tor‑Hidden‑Service."""
     provision = None
     try:
@@ -653,10 +804,25 @@ def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None,
                 DEFAULT_SOCKS_PORT = 9050
                 socks_port = DEFAULT_SOCKS_PORT if not _is_port_in_use(ssh, DEFAULT_SOCKS_PORT) else _get_free_port(ssh)
 
+                # Client‑Auth – Schlüssel erzeugen ------------------
+                if tor_auth_type == "cert":
+                    # Schlüsselpaar erzeugen
+                    priv_bytes, pub_bytes = _gen_x25519_keypair()
+                    pub_b32 = _b32_encode(pub_bytes)
+                    priv_b32 = _b32_encode(priv_bytes)
+
+                    # authorized_clients‑Datei anlegen
+                    _write_authorized_client_file(ssh, hidden_dir, pub_b32)
+
+                    # Private Key im Provision‑Objekt sichern und DB‑update
+                    provision.tor_private_key = priv_b32
+                    provision.save(update_fields=['tor_private_key'])
+
                 torrc_path = f"{tor_data_dir}.torrc_{provision.container_name}"
-                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api)
+                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api, tor_auth_type=tor_auth_type, tor_auth_value=tor_auth_value,)
                 print("=== erzeugte torrc ===")
                 print(torrc_content)
+
                 with ssh.open_sftp().open(torrc_path, "w") as f:
                     f.write(torrc_content)
 
@@ -686,7 +852,6 @@ WantedBy=default.target
                 _, onion_addr, _ = _run_cmd(ssh, f"cat {hidden_dir}/hostname")
                 if not onion_addr:
                     raise RuntimeError("Keine Onion‑Adresse gefunden")
-
 
             # Docker‑Run
 
@@ -765,6 +930,11 @@ WantedBy=default.target
 
             provision.image = selected_image
             provision.save(update_fields=["image"])
+
+            # *** Rückgabe‑Logik ***
+            # Nach erfolgreichem Deploy können wir das Objekt zurückschicken,
+            # falls wir es später in einer View brauchen.
+            return provision.id
 
     except Exception as exc:
         if provision:

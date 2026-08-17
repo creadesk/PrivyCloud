@@ -100,13 +100,19 @@
 
         <!-- ---------- Images ---------- -->
         {% if images %}
-          <label for="image_choice">Docker‑Image auswählen:</label>
-          <select name="image_choice" id="image_choice">
-            {% for image in images %}
-              <option value="{{ image }}">{{ image }}</option>
-            {% endfor %}
-          </select>
+          <div class="form-group">
+              <label for="image_choice">Docker‑Image auswählen:</label>
+              <select name="image_choice" id="image_choice">
+                {% for image in images %}
+                  <option value="{{ image }}">{{ image }}</option>
+                {% endfor %}
+              </select>
+          </div>
         {% endif %}
+
+        <!--
+        <input type="hidden" name="tor_auth_type" value="{{ tor_auth_type }}">
+        -->
 
         <!-- ---------- Umgebungsvariablen ---------- -->
         {% if app_env_vars %}

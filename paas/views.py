@@ -92,6 +92,7 @@ def select_app(request):
           return render(request, 'paas/deploy_app.html', {
               'form': init_form,
               "PLATFORM_NAME": PLATFORM_NAME,
+              'tor_auth_type': app_def.tor_auth_type,
           })
       else:
             form = FormCls()
@@ -140,6 +141,7 @@ def deploy_app(request):
                     'readonly': True,
                     'app_env_vars': app_env_vars,
                     'images': full_images,
+                    'tor_auth_type': app_def.tor_auth_type,
                     "PLATFORM_NAME": PLATFORM_NAME,
                 }
                 return render(request, 'paas/deploy_app.html', context)
@@ -255,7 +257,22 @@ def _handle_deploy(request, form):
         duration_delta = parse_duration(duration)
         expires_at = timezone.now() + duration_delta
 
-    # 6) Provision‑Objekt erzeugen
+    # 6) Authentisierung
+    #tor_auth_type = request.POST.get('tor_auth_type', 'none')
+    tor_auth_type = app_def.tor_auth_type
+    tor_auth_value = None
+    ''' -- OBSOLET in Tor v3
+    if tor_auth_type == 'password':
+        tor_auth_value = request.POST.get('tor_auth_password')
+        if not tor_auth_value:
+            return render_deploy(
+                request,
+                error="Passwort für Tor‑Hidden‑Service fehlt.",
+                app_def=app_def,
+            )
+    '''
+
+    # 7) Provision‑Objekt erzeugen
     print(request.user)
     print(app_def)
     print(host)
@@ -268,11 +285,11 @@ def _handle_deploy(request, form):
         status='pending',
     )
 
-    # 7) Deploy‑Task starten
-    deploy_app_task(provision.id, selected_image, env_vars)
+    # 8) Deploy‑Task starten
+    deploy_app_task(provision.id, selected_image, env_vars, tor_auth_type=tor_auth_type, tor_auth_value=tor_auth_value)
     provision.refresh_from_db()
 
-    # 8) Erfolgspage
+    # 9) Erfolgspage
     return render(request, 'paas/deploy_success.html', {
         'provision': provision,
         'app_env_vars': env_vars,
@@ -322,9 +339,12 @@ def render_deploy(request, error=None, app_def=None):
 @rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
 def deploy_success(request, pk):
   provision = ProvisionedApp.objects.get(pk=pk, user=request.user)
+  # Der Task hat eventuell ein Attribut `._tor_private_key` angehängt.
+  private_key = getattr(provision, "_tor_private_key", None)
   return render(request, 'paas/deploy_success.html', {
       'provision': provision,
       "PLATFORM_NAME": PLATFORM_NAME,
+      'private_key': private_key,  # None, falls keine Zertifikat‑Auth
   })
 
 @login_required

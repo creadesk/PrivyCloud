@@ -15,6 +15,12 @@ import paramiko
 class AppDefinition(models.Model):
   """Vordefinierte Apps, die bereitgestellt werden können."""
 
+  TOR_AUTH_CHOICES = [
+      ('none', _('ohne')),
+      #('password', _('Passwort')), --> in tor v3 obsolet !!
+      ('cert', _('Zertifikat')),
+  ]
+
   name = models.CharField(max_length=64, unique=True)
   display_name = models.CharField(max_length=128)
   # ──────────────────────────────────────────────────────────────
@@ -35,6 +41,13 @@ class AppDefinition(models.Model):
   use_deploy_user = models.BooleanField(default=False, help_text="Container mit User {uid}:{gid} starten")
   no_hidden_service = models.BooleanField(default=False, help_text="ohne Hidden-Service")
   use_hostpid_namespace = models.BooleanField(default=False, help_text="Container verwendet den PID-Namespace des Hosts")
+
+  tor_auth_type = models.CharField(
+      max_length=8,
+      choices=TOR_AUTH_CHOICES,
+      default='none',
+      help_text=_('Authentisierung für den Tor‑Hidden‑Service.'),
+  )
 
   class Meta:
       ordering = ['display_name']
@@ -231,6 +244,11 @@ class ProvisionedApp(models.Model):
   last_modified = models.DateTimeField(auto_now=True)
   docker_run_cmd = models.CharField(max_length=5000, blank=True, null=True)
   image = models.CharField(max_length=250, blank=True, null=True)
+  tor_private_key = models.TextField(
+      blank=True,
+      null=True,
+      help_text="Base32‑kodierter x25519‑Private‑Key (nur für cert‑Auth)."
+  )
 
   class Meta:
   #   unique_together = ('user', 'app', 'host')   # keine Duplikate
