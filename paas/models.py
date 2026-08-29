@@ -17,7 +17,6 @@ class AppDefinition(models.Model):
 
   TOR_AUTH_CHOICES = [
       ('none', _('ohne')),
-      #('password', _('Passwort')), --> in tor v3 obsolet !!
       ('cert', _('Zertifikat')),
   ]
 
@@ -29,7 +28,7 @@ class AppDefinition(models.Model):
   # ──────────────────────────────────────────────────────────────
   docker_image = models.CharField(
       max_length=256,
-      help_text="Registry + Image‑Name (ohne Tag), z.B. 'louislam/uptime‑kuma'.",
+      help_text="Registry + Image‑Name (ohne Tag), z.B. 'docker.io/louislam/uptime‑kuma'.",
   )
 
   description = models.TextField(blank=True)
@@ -244,11 +243,6 @@ class ProvisionedApp(models.Model):
   last_modified = models.DateTimeField(auto_now=True)
   docker_run_cmd = models.CharField(max_length=5000, blank=True, null=True)
   image = models.CharField(max_length=250, blank=True, null=True)
-  tor_private_key = models.TextField(
-      blank=True,
-      null=True,
-      help_text="Base32‑kodierter x25519‑Private‑Key (nur für cert‑Auth)."
-  )
 
   class Meta:
   #   unique_together = ('user', 'app', 'host')   # keine Duplikate

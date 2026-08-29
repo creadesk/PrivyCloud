@@ -306,7 +306,7 @@ def _build_torrc(app_def: AppDefinition,
                 hidden_dir: str,
                 free_port_web: int,
                 free_port_api: int,
-                tor_auth_type=None, tor_auth_value=None) -> str:
+                tor_auth_type=None,) -> str:
     """
     Baut die Tor‑Konfigurations‑Datei (torrc) als String.
 
@@ -317,7 +317,6 @@ def _build_torrc(app_def: AppDefinition,
         free_port_web  – Port, auf dem die Web‑App läuft (intern)
         free_port_api  – Port, auf dem die API läuft (intern)
         tor_auth_type  - 'password' | 'cert' | None
-        tor_auth_value - Passwort‑String (falls tor_auth_type == 'password')
     """
     # Basis‑Zeilen – immer vorhanden
     lines = [
@@ -330,60 +329,6 @@ def _build_torrc(app_def: AppDefinition,
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_web} 127.0.0.1:{free_port_web}")
     if app_def.app_port_intern_api != 1:
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_api} 127.0.0.1:{free_port_api}")
-
-    ''' --> OBSOLET in Tor v3
-    # ---------- Tor‑Authentisierung ----------
-    if tor_auth_type == "password":
-        if tor_auth_value is None:
-            raise ValueError("tor_auth_value muss gesetzt sein, wenn tor_auth_type=='password'")
-
-        # Tor akzeptiert einen SHA‑1‑Hash des Passworts (in hex‑Form)
-        #hashed = hashlib.sha1(tor_auth_value.encode()).hexdigest()
-        hashed = hashlib.sha256(tor_auth_value.encode()).hexdigest()
-
-        # Auth‑Fragment – das ist die korrekte Syntax
-        lines.append("HiddenServiceAuth 1")  # aktiviert v3‑Auth (optional)
-        lines.append(f"HiddenServiceAuthorizeClient password {hashed}")
-
-
-    elif tor_auth_type == "cert":
-
-        # 2048‑Bit RSA‑Schlüssel erzeugen
-
-        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-        priv_bytes = key.private_bytes(
-
-            encoding=serialization.Encoding.PEM,
-
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-
-            encryption_algorithm=serialization.NoEncryption(),
-
-        )
-
-        pub_bytes = key.public_key().public_bytes(
-
-            encoding=serialization.Encoding.OpenSSH,
-
-            format=serialization.PublicFormat.OpenSSH,
-
-        )
-
-        # Tor‑Format (Onion‑Key) – das Public‑Key‑String, ohne `ssh-rsa `‑Prefix
-
-        onion_pubkey = pub_bytes.decode().strip()
-
-        lines.append("HiddenServiceAuth 2")
-
-        lines.append(f"Onion-key {onion_pubkey}")
-
-        # Wir speichern die Private‑Key‑Zeichenkette im App‑Objekt,
-
-        # damit sie später an die View zurückgegeben werden kann
-
-        app_def._tor_private_key = priv_bytes.decode()
-        '''
 
     # Alle Zeilen zu einem String mit Zeilenumbrüchen zusammenfügen
     torrc = "\n".join(lines) + "\n"   # Letztes \n für POSIX‑kompatibel
@@ -758,7 +703,7 @@ def simple_task():
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=60)
-def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, tor_auth_type=None, tor_auth_value=None, **kwargs):
+def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, tor_auth_type=None, tor_pub_key=None, **kwargs):
     """Deploy einer App als Docker‑Container + Tor‑Hidden‑Service."""
     provision = None
     try:
@@ -806,20 +751,17 @@ def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None,
 
                 # Client‑Auth – Schlüssel erzeugen ------------------
                 if tor_auth_type == "cert":
-                    # Schlüsselpaar erzeugen
-                    priv_bytes, pub_bytes = _gen_x25519_keypair()
-                    pub_b32 = _b32_encode(pub_bytes)
-                    priv_b32 = _b32_encode(priv_bytes)
+                    # Wir besitzen bereits den öffentlichen Schlüssel: tor_pub_key
+                    if not tor_pub_key:
+                        raise RuntimeError("Public key fehlt, obwohl cert‑Auth angefordert")
 
                     # authorized_clients‑Datei anlegen
-                    _write_authorized_client_file(ssh, hidden_dir, pub_b32)
+                    _write_authorized_client_file(ssh, hidden_dir, tor_pub_key)
 
-                    # Private Key im Provision‑Objekt sichern und DB‑update
-                    provision.tor_private_key = priv_b32
-                    provision.save(update_fields=['tor_private_key'])
+                    # **kein** privater Key in ProvisionedApp speichern
 
                 torrc_path = f"{tor_data_dir}.torrc_{provision.container_name}"
-                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api, tor_auth_type=tor_auth_type, tor_auth_value=tor_auth_value,)
+                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api, tor_auth_type=tor_auth_type,)
                 print("=== erzeugte torrc ===")
                 print(torrc_content)
 

@@ -6,20 +6,18 @@ from django.contrib.auth.decorators import login_required
 from datetime import timedelta
 from django.utils import timezone
 from django.urls import reverse
-
 from django.utils.dateparse import parse_duration
 from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag
 from .forms import DeployForm, DeployFormAdmin
 from .strategies import LeastLoadStrategy
-from .tasks import deploy_app_task, delete_container_task, update_app_task
+from .tasks import deploy_app_task, delete_container_task, update_app_task, _gen_x25519_keypair, _b32_encode
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
-
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseForbidden, HttpResponseNotAllowed
-
 from django.contrib import messages
-
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives import serialization
 
 def _check_user_limits(user, requested_duration, request):
     # Skip check für superuser
@@ -130,7 +128,8 @@ def deploy_app(request):
                 app_env_vars = AppEnvVarPerApp.objects.filter(app=app_def, editable=True) if app_def else []
 
                 # Alle kompletten Image‑Strings für die gewählte App generieren
-                full_images = [app_def.full_docker_image(tag) for tag in app_def.image_tags.all()]
+                tags_qs = app_def.image_tags.all().order_by('-tag')
+                full_images = [app_def.full_docker_image(tag) for tag in tags_qs]
 
                 # Nur die Vorschau anzeigen – kein Deploy
                 context = {
@@ -261,16 +260,14 @@ def _handle_deploy(request, form):
     #tor_auth_type = request.POST.get('tor_auth_type', 'none')
     tor_auth_type = app_def.tor_auth_type
     tor_auth_value = None
-    ''' -- OBSOLET in Tor v3
-    if tor_auth_type == 'password':
-        tor_auth_value = request.POST.get('tor_auth_password')
-        if not tor_auth_value:
-            return render_deploy(
-                request,
-                error="Passwort für Tor‑Hidden‑Service fehlt.",
-                app_def=app_def,
-            )
-    '''
+
+    tor_pub_b32 = None
+    tor_priv_b32 = None
+    if tor_auth_type == "cert":
+        priv_bytes, pub_bytes = _gen_x25519_keypair()
+        tor_priv_b32 = _b32_encode(priv_bytes)
+        tor_pub_b32 = _b32_encode(pub_bytes)
+        # Der private Key wird nicht in die DB geschrieben – nur im Kontext weitergegeben
 
     # 7) Provision‑Objekt erzeugen
     print(request.user)
@@ -286,7 +283,7 @@ def _handle_deploy(request, form):
     )
 
     # 8) Deploy‑Task starten
-    deploy_app_task(provision.id, selected_image, env_vars, tor_auth_type=tor_auth_type, tor_auth_value=tor_auth_value)
+    deploy_app_task(provision.id, selected_image, env_vars, tor_auth_type=tor_auth_type, tor_pub_key=tor_pub_b32,)
     provision.refresh_from_db()
 
     # 9) Erfolgspage
@@ -294,6 +291,7 @@ def _handle_deploy(request, form):
         'provision': provision,
         'app_env_vars': env_vars,
         "PLATFORM_NAME": PLATFORM_NAME,
+        'tor_private_key': tor_priv_b32,
     })
 
 def _validate_env_vars(app, env_vars):

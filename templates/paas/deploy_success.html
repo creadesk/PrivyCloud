@@ -85,9 +85,9 @@
       <dt>Status</dt>
       <dd>{{ provision.get_status_display|default:provision.status }}</dd>
 
-    {% if provision.tor_private_key %}
-      <dt>Private Key für das Tor‑Zertifikat. Speichern Sie diesen Key an einem sicheren Ort.</dt>
-      <dd>{{ provision.tor_private_key }}</dd>
+    {% if tor_private_key %}
+      <dt>Private Key für das Tor‑Zertifikat. Speichern Sie diesen Key an einem sicheren Ort</dt>
+      <dd>{{ tor_private_key }}</dd>
     {% endif %}
 
   </dl>
