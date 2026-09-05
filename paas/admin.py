@@ -18,7 +18,7 @@ from django_celery_beat.models import (
 @admin.register(AppImageTag)
 class AppImageTagAdmin(admin.ModelAdmin):
   list_display = ('id', 'tag', 'app_definition')
-  search_fields = ('id', 'tag', 'app_definition')
+  search_fields = ('id', 'tag', 'app_definition__display_name')
 
 @admin.register(AppDefinition)
 class AppDefinitionAdmin(admin.ModelAdmin):

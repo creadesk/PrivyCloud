@@ -161,10 +161,10 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 7. Datenbank-Import Startkonfiguration
-- mindestens benötigte Datensätze in sqlite db einfügen
+### ~~7. Datenbank-Import Startkonfiguration~~
+~~- mindestens benötigte Datensätze in sqlite db einfügen~~
 ```bash
-python manage.py db_start_config
+(entfernt)
 ```
 
 ### 8. Server+Celery starten

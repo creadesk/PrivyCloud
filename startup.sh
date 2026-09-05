@@ -28,7 +28,7 @@ else
     echo "DJANGO_SUPERUSER_USERNAME and/or DJANGO_SUPERUSER_PASSWORD not set – skipping superuser creation."
 fi
 
-python manage.py db_start_config
+#python manage.py db_start_config
 
 echo "Starte Celery Worker"
 celery -A core.celery worker \
