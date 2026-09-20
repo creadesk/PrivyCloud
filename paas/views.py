@@ -2,7 +2,7 @@ import paramiko
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from datetime import timedelta
 from django.utils import timezone
 from django.urls import reverse
@@ -10,14 +10,19 @@ from django.utils.dateparse import parse_duration
 from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag
 from .forms import DeployForm, DeployFormAdmin
 from .strategies import LeastLoadStrategy
-from .tasks import deploy_app_task, delete_container_task, update_app_task, _gen_x25519_keypair, _b32_encode
+from .tasks import deploy_app_task, delete_container_task, update_app_task, _gen_x25519_keypair, _b32_encode, \
+    _ssh_client, _run_cmd
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
 from django_smart_ratelimit import rate_limit
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseForbidden, HttpResponseNotAllowed
+from django.http import HttpResponseForbidden, HttpResponseNotAllowed, HttpResponseNotFound
 from django.contrib import messages
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives import serialization
+from django.http import HttpResponse, HttpResponseForbidden
+import re
+from typing import Tuple
+
 
 def _check_user_limits(user, requested_duration, request):
     # Skip check für superuser
@@ -390,8 +395,10 @@ def delete_app(request, pk):
     provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
     provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
 
+    print(provision.status)
+
     # App darf nur laufen oder gelöscht werden
-    if provision.status not in ('running', 'deleting', 'stopped'):
+    if provision.status not in ('running', 'deleting', 'stopped', 'error'):
         # Nicht‑zulässige App – einfach weiterleiten
         return render(request, 'paas/my_apps.html', {
             'provisions': provisions,
@@ -409,7 +416,7 @@ def delete_app(request, pk):
     # ---------- 2. Schritt – Löschen ----------
     if request.method == 'POST' and 'confirmed' in request.POST:
         # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
-        if provision.status not in ('running', 'deleting', 'stopped'):
+        if provision.status not in ('running', 'deleting', 'stopped', 'error'):
             return render(request, 'paas/my_apps.html', {
                 'provisions': provisions,
                 "PLATFORM_NAME": PLATFORM_NAME,
@@ -634,3 +641,150 @@ def delete_image(request, host_id, image_id):
         client.close()
 
     return redirect('paas_images')
+
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def docker_logs(request, provision_id: int) -> HttpResponse:
+    """
+    Zeigt die letzten <lines> Zeilen des Docker‑Logs des Container‑IDs,
+    der in der ProvisionedApp hinterlegt ist.
+    Nur Super‑User haben Zugriff.
+    """
+    provision = get_object_or_404(ProvisionedApp, id=provision_id)
+
+    # ------------------------------------------------------------------
+    # Parameter verarbeiten
+    # ------------------------------------------------------------------
+    lines_param = request.GET.get('lines', None)
+    try:
+        tail = int(lines_param) if lines_param else None
+        if tail is not None and tail <= 0:
+            raise ValueError
+    except ValueError:
+        # Fallback zu 100 Zeilen, falls ungültiger Wert eingegeben wurde
+        tail = 100
+
+    # ------------------------------------------------------------------
+    # Docker‑Client über SSH initialisieren
+    # ------------------------------------------------------------------
+    client = provision._docker_client()
+    if client is None:
+        return HttpResponse(
+            'Docker‑Client konnte nicht initialisiert werden.',
+            status=500,
+            content_type='text/plain',
+        )
+
+    # ------------------------------------------------------------------
+    # Logs abrufen
+    # ------------------------------------------------------------------
+    if not provision.container_id:
+        logs_text = 'Kein Container‑ID vorhanden.'
+    else:
+        try:
+            container = client.containers.get(provision.container_id)
+            # stream=False liefert das komplette Log‑Blob
+            logs_bytes = container.logs(tail=tail, stream=False)
+            logs_text = logs_bytes.decode('utf-8', errors='replace')
+        except Exception as exc:
+            logs_text = f'Fehler beim Auslesen der Logs: {exc}'
+
+    # ------------------------------------------------------------------
+    # Ausgabe als plain‑text (im Browser als neuer Tab)
+    # ------------------------------------------------------------------
+    response = HttpResponse(
+        logs_text,
+        content_type='text/plain; charset=utf-8',
+    )
+    response['Content-Disposition'] = (
+        f'inline; filename="docker-logs-{provision.id}.txt"'
+    )
+    return response
+
+
+# ---------------------------------
+# Utility: sichere Pfad‑Validierung
+# ---------------------------------
+_LOG_PATH_RE = re.compile(r'^/(?!.*\.\./).*')   # absolut, keine '..'
+
+def _validate_log_path(path: str) -> bool:
+    return bool(path) and bool(_LOG_PATH_RE.match(path))
+
+def _run_cmd_bytes(ssh, command: str) -> Tuple[int, bytes, bytes]:
+    """
+    Führt einen Befehl auf dem Remote‑Host aus und gibt (exit_code, stdout, stderr)
+    zurück – **stdout / stderr sind bytes**.
+    """
+    stdin, stdout_f, stderr_f = ssh.exec_command(command)
+    # read() liefert bytes
+    stdout_data = stdout_f.read()
+    stderr_data = stderr_f.read()
+    exit_status = stdout_f.channel.recv_exit_status()
+    return exit_status, stdout_data, stderr_data
+
+# ---------------------------------
+# Applikations‑Logs
+# ---------------------------------
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+def application_logs(request, pk):
+    provision = get_object_or_404(ProvisionedApp, pk=pk)
+
+    log_path = provision.application_log_path
+    if not _validate_log_path(log_path):
+        return HttpResponseNotFound(
+            "Kein gültiger Log‑Pfad für diese App definiert."
+        )
+
+    # Zeilenanzahl holen
+    try:
+        lines = int(request.GET.get('lines', '200'))
+        if lines <= 0:
+            raise ValueError
+    except ValueError:
+        lines = 200
+
+    # 1. Prüfen, ob die Datei im Container existiert (ls‑Check)
+    cmd_check = f"docker exec {provision.container_id} test -f {log_path}"
+    try:
+        with _ssh_client(provision.host) as ssh:
+            exit_code, _, _ = _run_cmd_bytes(ssh, cmd_check)
+    except Exception as exc:
+        return HttpResponseNotFound(f"Fehler beim Prüfen des Log‑Pfads: {exc}")
+
+    if exit_code != 0:
+        return HttpResponseNotFound(
+            f"Log‑Datei `{log_path}` existiert nicht im Container."
+        )
+
+    # 2. Tail‑Befehl ausführen
+    cmd_tail = (
+        f"docker exec {provision.container_id} sh -c "
+        f"\"tail -n {lines} {log_path}\""
+    )
+
+    try:
+        with _ssh_client(provision.host) as ssh:
+            exit_code, stdout, stderr = _run_cmd(ssh, cmd_tail)
+    except Exception as exc:
+        return HttpResponseNotFound(f"Fehler beim Auslesen des Log‑Pfads: {exc}")
+
+    if exit_code != 0:
+        # Falls tail>0 (z.B. Datei leer? – dann exit‑code 0, aber keine Ausgabe)
+        # Wir geben trotzdem die Fehlermeldung aus.
+        err_msg = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
+        return HttpResponseNotFound(
+            f"Fehler beim Auslesen des Logs: {err_msg}"
+        )
+
+    # 3. Bytes / str typ‑sicher ausgeben
+    if isinstance(stdout, bytes):
+        content = stdout.decode('utf-8', errors='replace')
+    else:                     # falls stdout bereits ein str
+        content = stdout
+
+    return HttpResponse(content, content_type='text/plain')

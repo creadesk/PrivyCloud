@@ -152,6 +152,7 @@
                     </tr>
 
                     <!-- Detail‑panel under every provision row -->
+                    <!-- Panel: Image-Info -->
                     <tr class="panel-row">
                         <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}">
                             <details class="app-image-panel">
@@ -188,6 +189,57 @@
                                         <button type="submit" class="update-btn">Update durchführen</button>
                                     </div>
                                 </form>
+                            </details>
+                        </td>
+                    </tr>
+
+                    <!-- Panel: Logs -->
+                    <tr class="panel-row">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}">
+                            <details class="app-image-panel">
+                                <summary class="panel-summary">
+                                    <span class="panel-label">Logs</span>
+                                    <span class="toggle-icon" aria-hidden="true"></span>
+                                </summary>
+
+                                {% if request.user.is_superuser %}
+                                    <!-- GET‑Formular für Docker‑Logs -->
+                                    <form method="get"
+                                          action="{% url 'docker_logs' p.id %}"
+                                          target="_blank"
+                                          class="log-form">
+                                        <div class="panel-content">
+                                            <label for="lines-{{ p.id }}">Anzahl Zeilen:</label>
+                                            <input type="number" id="lines-{{ p.id }}"
+                                                   name="lines" min="1" value="100"
+                                                   placeholder="z.B. 200">
+                                            <button type="submit" class="update-btn">
+                                                Docker‑Log abrufen
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <!-- GET‑Formular für Applikations‑Logs (nur wenn Pfad gesetzt) -->
+                                    {% if p.application_log_path %}
+                                    <form method="get"
+                                          action="{% url 'app_logs' p.id %}"
+                                          target="_blank"
+                                          class="log-form">
+                                        <div class="panel-content">
+                                            <label for="app-lines-{{ p.id }}">Anzahl Zeilen:</label>
+                                            <input type="number" id="app-lines-{{ p.id }}"
+                                                   name="lines" min="1" value="100"
+                                                   placeholder="z.B. 200">
+                                            <button type="submit" class="update-btn">
+                                                Applikations‑Log abrufen
+                                            </button>
+                                        </div>
+                                    </form>
+                                    {% else %}
+                                        <!-- Optional: Hinweis, wenn kein Log‑Pfad definiert ist -->
+                                        <p class="info-text">Kein Applikations‑Log‑Pfad hinterlegt.</p>
+                                    {% endif %}
+                                {% endif %}
                             </details>
                         </td>
                     </tr>

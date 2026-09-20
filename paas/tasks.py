@@ -24,9 +24,8 @@ from django.db.models import Q
 import subprocess
 from typing import Tuple
 import contextlib
-from typing import Generator
+from typing import Any, Generator, Optional
 
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

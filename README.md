@@ -75,7 +75,7 @@
     redis-cli ping
     # -> PONG
     
-    # Wenn Redis auch von anderen Rechnern erreichbar sein soll:
+    # Wenn Redis auch im Netzwerk erreichbar sein soll:
     sudo nano /etc/redis/redis.conf
       --> bind 0.0.0.0
       --> protected-mode no
@@ -361,13 +361,13 @@ Schritte aus Kapitel [Voraussetzungen](#voraussetzungen) und [Zielhosts vorberei
 User in Docker Gruppe aufnehmen
 ```bash
 sudo usermod -aG docker $USER
+sudo reboot
 ```
 
 ### Image lokal erstellen 
 ```bash
 sudo apt install -y docker.io
 sudo apt install -y docker-buildx
-sudo reboot
 
 sudo apt install -y git
 
@@ -402,6 +402,7 @@ mkdir -p ./zdockerdata/db
 ```bash
 docker run -d \
   --name "privycloud" \
+  --restart unless-stopped \
   -p 8000:8000 \
   -p 5555:5555 \
   -v "$(pwd)/zdockerdata/media:/app/media" \

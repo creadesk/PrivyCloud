@@ -244,6 +244,15 @@ class ProvisionedApp(models.Model):
   docker_run_cmd = models.CharField(max_length=5000, blank=True, null=True)
   image = models.CharField(max_length=250, blank=True, null=True)
 
+  # Optionaler Pfad zu einer Log‑Datei innerhalb des Containers
+  # (z.B.  /var/log/myapp.log)
+  application_log_path = models.CharField(
+      max_length=512,
+      blank=True,
+      null=True,
+      help_text="Optionaler Pfad zu einer Log‑Datei im Container (z.B. /var/log/app.log)."
+  )
+
   class Meta:
   #   unique_together = ('user', 'app', 'host')   # keine Duplikate
       verbose_name = "Provisioned App"
