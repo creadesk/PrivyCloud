@@ -26,8 +26,11 @@ urlpatterns = [
     path('paas/update_app', paas.views.update_provisioned_app, name='update_provisioned_app'),
     path('paas/images',paas.views.images, name="paas_images"),
     path('paas/delete-image/<int:host_id>/<str:image_id>/',paas.views.delete_image,name='paas_delete_image'),
-    path('provision/<int:provision_id>/docker-logs/',paas.views.docker_logs,name='docker_logs'),
-    path('app-logs/<int:pk>/', paas.views.application_logs, name='app_logs'),
+    path('paas/provision/<int:provision_id>/docker-logs/',paas.views.docker_logs,name='docker_logs'),
+    path('paas/app-logs/<int:pk>/', paas.views.application_logs, name='app_logs'),
+    path('paas/data-corpses/',paas.views.data_corpses, name="paas_data_corpses"),
+    path('paas/data-corpses/mark-delete/', paas.views.mark_delete, name="paas_mark_delete"),
+    path('log_cleanup/<int:host_id>/', paas.views.paas_log_cleanup, name='paas_log_cleanup'),
 ]
 
 #this is only for development purpose

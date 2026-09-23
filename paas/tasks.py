@@ -25,6 +25,7 @@ import subprocess
 from typing import Tuple
 import contextlib
 from typing import Any, Generator, Optional
+import shlex
 
 
 logger = logging.getLogger(__name__)
@@ -338,7 +339,7 @@ def _build_torrc(app_def: AppDefinition,
 # Gemeinsame Lösch‑Logik
 # ----------------------------------------------------------------------
 def _cleanup_provision(provision: ProvisionedApp):
-    """Stopp, Löschung von Container und Tor‑Hidden‑Service."""
+    """Stoppt Container, löscht Tor‑Hidden‑Service – bei Problemen das Tor‑Verzeichnis umbenennen."""
     host = provision.host
     with _ssh_client(host) as ssh:
         # 1. Container entfernen
@@ -348,27 +349,60 @@ def _cleanup_provision(provision: ProvisionedApp):
             provision.container_id = None
 
         # 1.1 Unbenutzte Docker‑Volumes entfernen
-        # Achtung: Prüfen, ob Docker überhaupt läuft!
         _run_cmd(ssh, "docker volume prune -f")
         provision.log += "\nUnused Docker volumes pruned."
 
         # 2. Tor‑Hidden‑Service entfernen
         if provision.container_name:
-            tor_data_dir = f"/home/{host.ssh_user}/{provision.container_name}/"
+            tor_data_dir = f"/home/{host.ssh_user}/{provision.container_name}"
             hidden = f"{tor_data_dir}.tor_hidden_{provision.container_name}"
             provision.log += f"\nTor Hidden‑Service {hidden} removed."
             provision.onion_address = None
 
-            #systemd dienst entfernen
-            # Remote commands – executed via the SSH client
-            _run_cmd(ssh, f"systemctl --user stop tor-hidden-service@{provision.container_name}.service")
-            _run_cmd(ssh, f"systemctl --user disable tor-hidden-service@{provision.container_name}.service")
-            _run_cmd(ssh, f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service")
+            # systemd‑Dienst entfernen
+            _run_cmd(
+                ssh,
+                f"systemctl --user stop tor-hidden-service@{provision.container_name}.service",
+            )
+            _run_cmd(
+                ssh,
+                f"systemctl --user disable tor-hidden-service@{provision.container_name}.service",
+            )
+            _run_cmd(
+                ssh,
+                f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service",
+            )
 
-            # tor datenverzeichnis löschen
-            _run_cmd(ssh, f"rm -rf {tor_data_dir} || true")
+            # 2.1 Tor‑Datenverzeichnis löschen – mit Fallback auf Umbenennung
+            exit_code, out, err = _run_cmd(ssh, f"rm -rf {tor_data_dir}")  # keine || true
+            print(f"[DEBUG] rm -rf {tor_data_dir} -> exit {exit_code}, out: '{out}', err: '{err}'")
 
-        # 3. DB-Eintrag löschen
+            if exit_code != 0:
+                # Umbenennen – Präfix "delete_me_"
+                parent_dir = os.path.dirname(tor_data_dir)
+                base_name = os.path.basename(tor_data_dir)
+                new_name = f"delete_me_{base_name}"
+                new_path = os.path.join(parent_dir, new_name)
+
+                # Escape for shell
+                cmd_mv = f"mv {shlex.quote(tor_data_dir)} {shlex.quote(new_path)}"
+                mv_exit, mv_out, mv_err = _run_cmd(ssh, cmd_mv)
+                print(f"[DEBUG] mv {tor_data_dir} -> {new_path} -> exit {mv_exit}, out: '{mv_out}', err: '{mv_err}'")
+
+                if mv_exit == 0:
+                    provision.log += (
+                        f"\n✗ Löschen fehlgeschlagen – "
+                        f"{tor_data_dir} wurde zu {new_path} umbenannt."
+                    )
+                else:
+                    provision.log += (
+                        f"\n✗ Fehler beim Umbenennen von {tor_data_dir}. "
+                        f"Bitte prüfen Sie die Berechtigungen."
+                    )
+            else:
+                provision.log += "\nTor‑Datenverzeichnis gelöscht."
+
+        # 3. DB‑Eintrag löschen
         provision.delete()
 
         # alternativ: 3.1 DB-Eintrag auf Status "deleted" setzen

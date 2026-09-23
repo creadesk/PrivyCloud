@@ -1,0 +1,99 @@
+{% extends "../base.html" %}
+{% load static %}
+{% load paas_extras %}
+
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Datenrückstände{% endblock %}
+
+{% block stylesheet %}
+    {{ block.super }}
+    {% static 'paas/style_data_corpses.css' %}
+{% endblock %}
+
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Datenrückstände{% endblock %}
+
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block content %}
+<h1>Datenrückstände – {{ PLATFORM_NAME }}</h1>
+
+<p>
+    Diese Seite zeigt alle Verzeichnisse, die noch im Home‑Verzeichnis des
+    Deploy‑Users eines Remote‑Hosts liegen, für die es keinen
+    Eintrag in <code>ProvisionedApp</code> (mehr) gibt.
+</p>
+
+{% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+{# --------------------------------- #}
+{#   Schleife über **alle** Hosts   #}
+{# --------------------------------- #}
+{% for host in hosts_all %}
+    <section class="corpses-host">
+        <h2><strong>{{ host.hostname }}</strong>{% if host.ip_address %} – {{ host.ip_address }}{% endif %}</h2>
+
+        {# Prüfen, ob dieser Host Corpses hat #}
+        {% with dirs=corpses_by_host|get_item:host %}
+        {% if dirs %}
+            <table class="table">
+                <thead><tr><th>Container‑Name (Verzeichnis)</th><th>Aktion</th></tr></thead>
+                <tbody>
+                    {% for d in dirs %}
+                        <tr>
+                            <td>{{ d|escape }}</td>
+                            <td>
+                                {% if d|slice:":10" != "delete_me_" %}
+                                    <form method="POST" action="{% url 'paas_mark_delete' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="host_id" value="{{ host.id }}">
+                                        <input type="hidden" name="dirname" value="{{ d }}">
+                                        <div class="pagination">
+                                            <button type="submit" >
+                                                Zur Löschung vormerken
+                                            </button>
+                                        </div>
+                                    </form>
+                                {% else %}
+                                    <em>Bereits zur Löschung vorgemerkt</em>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p><em>{{ dirs|length }} unzugeordnete Container{{ dirs|pluralize }} auf diesem Host.</em></p>
+        {% else %}
+            <p class="alert alert-success">Keine Datenrückstände gefunden.</p>
+        {% endif %}
+        {% endwith %}
+
+        {# --- Button zum Abrufen des Logs (super‑admin nur) --- #}
+        {% if request.user.is_superuser %}
+            <form method="GET"
+                  action="{% url 'paas_log_cleanup' host.id %}"
+                  target="_blank"
+                  style="display:inline;">
+                <div class="pagination">
+                    <button type="submit" class="">
+                        Log der Datenbereinigungsroutine abrufen
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+    </section>
+    <hr>
+{% endfor %}
+
+{% endblock %}

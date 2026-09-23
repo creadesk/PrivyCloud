@@ -1,3 +1,5 @@
+import os
+
 import paramiko
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -7,21 +9,25 @@ from datetime import timedelta
 from django.utils import timezone
 from django.urls import reverse
 from django.utils.dateparse import parse_duration
+from django.views.decorators.http import require_http_methods, require_POST
+
 from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag
 from .forms import DeployForm, DeployFormAdmin
 from .strategies import LeastLoadStrategy
 from .tasks import deploy_app_task, delete_container_task, update_app_task, _gen_x25519_keypair, _b32_encode, \
     _ssh_client, _run_cmd
-from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR
+from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR, STRING_TO_ADMIN_PATH
 from django_smart_ratelimit import rate_limit
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseForbidden, HttpResponseNotAllowed, HttpResponseNotFound
+from django.http import HttpResponseForbidden, HttpResponseNotAllowed, HttpResponseNotFound, HttpResponseServerError, \
+    HttpResponseBadRequest
 from django.contrib import messages
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives import serialization
 from django.http import HttpResponse, HttpResponseForbidden
 import re
-from typing import Tuple
+from typing import Tuple, Dict, List
+
 
 
 def _check_user_limits(user, requested_duration, request):
@@ -384,6 +390,7 @@ def my_apps(request):
   return render(request, 'paas/my_apps.html', {
       'provisions': provisions,
       "PLATFORM_NAME": PLATFORM_NAME,
+      "STRING_TO_ADMIN_PATH": STRING_TO_ADMIN_PATH,
   })
 
 @login_required
@@ -788,3 +795,180 @@ def application_logs(request, pk):
         content = stdout
 
     return HttpResponse(content, content_type='text/plain')
+
+
+
+def _list_remote_dirs(ssh, home_dir: str) -> List[str]:
+    """
+    Return a list of *non‑hidden* directory names that are present in the
+    given *home_dir* on the remote host.
+    Hidden directories (starting with '.') are skipped.
+    """
+    cmd = f'find {home_dir} -mindepth 1 -maxdepth 1 -type d -printf "%f\n"'
+    exit_code, out, err = _run_cmd(ssh, cmd)
+    if exit_code != 0:
+        # In case of error (permission, timeout, …) we return an empty list
+        return []
+
+    # `out` is a string containing one directory name per line.
+    dirs = [d for d in out.splitlines() if d and not d.startswith('.')]
+    return dirs
+
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_http_methods(["GET", "POST"])
+def data_corpses(request):
+    """
+    Show a list of directories in the *deploy user* home directory of
+    each RemoteHost that have no corresponding ProvisionedApp entry.
+    """
+    # Map of host → list of corpse directory names
+    corpses_by_host: Dict[RemoteHost, List[str]] = {}
+    hosts_all = RemoteHost.objects.all()
+    for host in hosts_all:
+        try:
+            # --- connect to the host ------------------------------------
+            with _ssh_client(host) as ssh:
+                # determine the absolute path of the deploy user’s home
+                # → either /home/<ssh_user> or /root for the root user
+                home_dir = f"/home/{host.ssh_user}" if host.ssh_user != "root" else "/root"
+
+                # --- list all sub‑directories of that home directory ----
+                dirs = _list_remote_dirs(ssh, home_dir)
+
+            # --- filter out the directories that are already known -------
+            unknown_dirs = []
+            for dirname in dirs:
+                # A ProvisionedApp entry exists if it points to this host
+                # *and* its container_name equals the directory name
+                if not ProvisionedApp.objects.filter(
+                    host=host, container_name=dirname
+                ).exists():
+                    unknown_dirs.append(dirname)
+
+            if unknown_dirs:
+                corpses_by_host[host] = unknown_dirs
+
+        except Exception as exc:            # pragma: no cover – SSH errors
+            # Log the exception – in production you would use logging
+            # logging.exception("Error while inspecting host %s: %s", host, exc)
+            # Continue with the next host – a single host failure
+            # should not break the whole view.
+            print("Error while inspecting host %s: %s", host, exc)
+            continue
+
+    context = {
+        "corpses_by_host": corpses_by_host,
+        "PLATFORM_NAME": PLATFORM_NAME,
+        "hosts_all": hosts_all,
+    }
+
+    return render(request, "paas/data_corpses.html", context)
+
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def mark_delete(request):
+    """
+    Rename a directory on the target host by prefixing it with
+    ``delete_me_``.  After the operation the user is redirected back
+    to the data‑corpses page.
+    """
+    host_id = request.POST.get("host_id")
+    dirname = request.POST.get("dirname")
+
+    # Basic validation – nothing is allowed to contain a slash or be empty
+    if not host_id or not dirname or "/" in dirname or ".." in dirname:
+        messages.error(request, "Ungültige Eingabe.")
+        return redirect(reverse("paas_data_corpses"))
+
+    host = get_object_or_404(RemoteHost, pk=host_id)
+
+    # Der Ziel‑Pfad
+    home_dir = f"/home/{host.ssh_user}" if host.ssh_user != "root" else "/root"
+    old_path = os.path.join(home_dir, dirname)
+    new_name = f"delete_me_{dirname}"
+    new_path = os.path.join(home_dir, new_name)
+
+    # SSH‑Rename
+    try:
+        with _ssh_client(host) as ssh:
+            # Prüfen, ob die Ziel‑Datei bereits existiert
+            check_cmd = f'test -e {new_path}'
+            exit_code, _, _ = _run_cmd(ssh, check_cmd)
+            if exit_code == 0:
+                messages.warning(
+                    request,
+                    f"'{new_name}' existiert bereits – Rename‑Vorgang abgebrochen.",
+                )
+                return redirect(reverse("paas_data_corpses"))
+
+            # Rename durchführen
+            rename_cmd = f'mv "{old_path}" "{new_path}"'
+            exit_code, _, err = _run_cmd(ssh, rename_cmd)
+            if exit_code != 0:
+                messages.error(
+                    request,
+                    f"Fehler beim Umbenennen von '{dirname}': {err or 'unbekannter Fehler'}",
+                )
+                return redirect(reverse("paas_data_corpses"))
+
+    except Exception as exc:        # pragma: no cover – Netzwerk‑/SSH‑Fehler
+        # In einer Produktionsumgebung würde man hier logging.exception(...)
+        messages.error(request, f"SSH‑Fehler: {exc}")
+        return redirect(reverse("paas_data_corpses"))
+
+    messages.success(request, f"'{dirname}' wurde zu '{new_name}' umbenannt und zur Löschung vorgemerkt.")
+    return redirect(reverse("paas_data_corpses"))
+
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_http_methods(["GET"])
+def paas_log_cleanup(request, host_id):
+    """Return the cleanup log of a specific RemoteHost."""
+    # Only super‑admins may use this endpoint
+    if not request.user.is_superuser:
+        raise PermissionDenied("Nur Superadmins dürfen Logs einsehen.")
+
+    host = get_object_or_404(RemoteHost, pk=host_id)
+
+    # Build absolute path – it is already safe because we use the ssh_user
+    log_path = f"/home/{host.ssh_user}/cleanup_data_corpses.log"
+
+    if not _validate_log_path(log_path):
+        return HttpResponseBadRequest("Ungültiger Log‑Pfad.")
+
+    # Pull the file via SSH
+    try:
+        with _ssh_client(host) as ssh:
+            exit_code, stdout, stderr = _run_cmd_bytes(
+                ssh, f"cat {log_path}"
+            )
+    except Exception as exc:
+        # Log the exception in real projects – here we keep it simple
+        return HttpResponseServerError(
+            f"SSH‑Verbindung fehlgeschlagen: {exc}"
+        )
+
+    if exit_code != 0:
+        # Provide the stderr content – useful for “file not found”
+        err_text = stderr.decode("utf‑8", errors="replace")
+        return HttpResponseServerError(
+            f"Fehler beim Lesen der Logdatei:\n{err_text}"
+        )
+
+    # Successful read – stream the file to the browser
+    response = HttpResponse(
+        stdout, content_type="text/plain"
+    )
+    # Let the browser display it inline; a descriptive filename is handy
+    response["Content-Disposition"] = (
+        f'inline; filename="cleanup_data_corpses_{host.hostname}.log"'
+    )
+    return response

@@ -238,6 +238,7 @@
                                     {% else %}
                                         <!-- Optional: Hinweis, wenn kein Log‑Pfad definiert ist -->
                                         <p class="info-text">Kein Applikations‑Log‑Pfad hinterlegt.</p>
+                                        <button type="submit"><a href="{{ request.scheme }}://{{ request.get_host }}/{{ STRING_TO_ADMIN_PATH }}paas/provisionedapp/{{ p.id }}/change/#id_application_log_path" target="_blank">Jetzt hinterlegen</a></button>
                                     {% endif %}
                                 {% endif %}
                             </details>

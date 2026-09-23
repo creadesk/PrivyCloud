@@ -16,6 +16,25 @@ from django_smart_ratelimit import rate_limit
 from paas.models import UserDeploymentLimit
 
 
+BANNED_PREFIXES  = ('delete_me_',)
+BANNED_EXACTS    = {'delete_me'}
+def username_is_banned(username: str) -> bool:
+    """Gibt True zurück, wenn der Username nicht erlaubt ist."""
+    # Case‑insensitiv – egal, ob 'Delete_Me' oder 'DELETE_ME'
+    uname = username.lower()
+
+    # Exakte Übereinstimmung
+    if uname in BANNED_EXACTS:
+        return True
+
+    # Prefix‑Check (z. B. delete_me_xxx)
+    for pref in BANNED_PREFIXES:
+        if uname.startswith(pref):
+            return True
+
+    return False
+
+
 def generateRandomString(length=20):
   """
   Generiert eine zufällige Zeichenkette mit Buchstaben (Groß- und Kleinbuchstaben) und Zahlen.
@@ -175,6 +194,11 @@ def register_view(request):
         password = request.POST.get("password")
         password_repeat = request.POST.get("password_repeat")
         error_message = None
+
+        if username_is_banned(username):
+            error_message = (
+                "Der Benutzername ist nicht erlaubt. Bitte wähle einen anderen Namen."
+            )
 
         if len(username) < 8:
             error_message = "Der Benutzername muss mindestens 8 Zeichen lang sein."

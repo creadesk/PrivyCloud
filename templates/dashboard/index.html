@@ -36,6 +36,13 @@
         </form>
         <div class="description">Zeigt alle heruntergeladenen Images.</div>
     </div>
+    <div class="panel">
+        <form method="POST" action="{% url 'paas_data_corpses' %}">
+            {% csrf_token %}
+            <button>Datenrückstände</button>
+        </form>
+        <div class="description">Zeigt Datenleichen gelöschter Apps auf Zielservern.</div>
+    </div>
     {% endif %}
 </div>
 {% endblock %}

@@ -1,5 +1,5 @@
 /* --------------------------------------------------------------------
-   Style für /paas/my_apps.html
+   Style für /paas/images.html
    -------------------------------------------------------------------- */
 
 /* --------------------------------------------------------------------
@@ -49,26 +49,26 @@ table tr:hover {
 /* --------------------------------------------------------------------
    4. Status‑Farben
    -------------------------------------------------------------------- */
-.status-running  { color: #27ae60; } /* grün */
-.status-pending  { color: #f1c40f; } /* gelb */
-.status-deleting { color: #e67e22; } /* orange */
-.status-finished { color: #95a5a6; } /* grau */
-.status-error    { color: #c0392b; } /* rot */
-.status-deleted  { color: #8e44ad; } /* violett – neuer */
-.status-stopped  { color: #7f8c8d; } /* grau‑blau */
-.status-stopping { color: #f39c12; } /* orange‑gelb */
-.status-starting { color: #3498db; } /* blau */
+.status-running  span { color: #27ae60; } /* grün */
+.status-pending  span { color: #f1c40f; } /* gelb */
+.status-deleting span { color: #e67e22; } /* orange */
+.status-finished span { color: #95a5a6; } /* grau */
+.status-error    span { color: #c0392b; } /* rot */
+.status-deleted  span { color: #8e44ad; } /* violett – neuer */
+.status-stopped  span { color: #7f8c8d; } /* grau‑blau */
+.status-stopping span { color: #f39c12; } /* orange‑gelb */
+.status-starting span { color: #3498db; } /* blau */
 
 /* Status‑Texte fett */
-.status-running,
-.status-pending,
-.status-deleting,
-.status-finished,
-.status-error,
-.status-deleted,
-.status-stopped,
-.status-stopping,
-.status-starting {
+.status-running  span,
+.status-pending  span,
+.status-deleting span,
+.status-finished span,
+.status-error    span,
+.status-deleted  span,
+.status-stopped  span,
+.status-stopping span,
+.status-starting span {
     font-weight: bold;
 }
 

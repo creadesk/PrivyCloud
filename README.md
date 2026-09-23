@@ -286,6 +286,157 @@ Host <ZIEL_IP>
 ```
 
 
+#### Bereinigungsrouine für Datenrückstände
+```bash
+sudo nano /home/deploy/cleanup_data_corpses.sh
+```
+```bash
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------
+# cleanup_data_corpses.sh
+#
+# Zweck:  Alle Unterverzeichnisse, deren Name mit "delete_me_"
+#         beginnt, im Zielverzeichnis entfernen.
+#
+# Verbesserungen:
+#   • Log‑Datei‑Rotation (max. Größe + Anzahl Aufbewahrungs‑Versionen)
+#   • Sauberer, sicherer Umgang mit Dateinamen (null‑terminated)
+#   • Ausführungs‑ und Rechte‑Sicherheit
+#   • Fehlermanagement + Protokollierung
+# -----------------------------------------------------------------------
+
+# ------------------------ Konfiguration -------------------------------
+TARGET_DIR="/home/deploy"                     # ← Zielverzeichnis anpassen
+PREFIX="delete_me_"                           # ← zu löschender Ordner‑Präfix
+LOGDIR="/home/deploy"
+LOGFILE="${LOGDIR}/cleanup_data_corpses.log"
+
+# Log‑Rotation‑Parameter
+LOG_MAX_SIZE=10485760      # 10 MiB   → max. Dateigröße vor Rotation
+LOG_MAX_FILES=5            # 5 Back‑Up‑Dateien
+
+# Lock‑Datei (nur eine Instanz gleichzeitig)
+LOCKFILE="/home/deploy/cleanup_data_corpses.lock"
+
+# -----------------------------------------------------------------------
+# Sicherheits‑Checks
+# -----------------------------------------------------------------------
+# 1. Nur root
+if [[ "$(id -u)" -ne 0 ]]; then
+    echo "ERROR: Script muss als root ausgeführt werden." >&2
+    exit 1
+fi
+
+# 2. Zielverzeichnis muss existieren
+if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "ERROR: Zielverzeichnis $TARGET_DIR existiert nicht." >&2
+    exit 1
+fi
+
+# 3. Verzeichnisse für Log & Lock erzeugen (falls noch nicht vorhanden)
+mkdir -p "$LOGDIR" "$LOCKFILE" 2>/dev/null
+chmod 755 "$LOGDIR" "$LOCKFILE"
+
+# 4. Log‑Datei initialisieren (falls noch nicht vorhanden)
+if [[ ! -f "$LOGFILE" ]]; then
+    touch "$LOGFILE"
+    chmod 640 "$LOGFILE"
+    chown root:root "$LOGFILE"
+fi
+
+# -----------------------------------------------------------------------
+# Shell‑Einstellungen
+# -----------------------------------------------------------------------
+set -euo pipefail
+IFS=$'\n\t'
+
+# -----------------------------------------------------------------------
+# Sperrdatei – verhindert gleichzeitige Ausführungen
+# -----------------------------------------------------------------------
+exec 200>"$LOCKFILE"
+flock -n 200 || {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] Eine andere Instanz läuft bereits – Abbruch." >>"$LOGFILE"
+    exit 0
+}
+
+# -----------------------------------------------------------------------
+# Log‑Rotation
+# -----------------------------------------------------------------------
+rotate_log() {
+    # Wenn die Log‑Datei größer als LOG_MAX_SIZE ist → Rotation starten
+    if [[ -f "$LOGFILE" ]] && [[ $(stat -c%s "$LOGFILE") -ge $LOG_MAX_SIZE ]]; then
+        # Lösche die älteste Log‑Version (wenn vorhanden)
+        if [[ -f "${LOGFILE}.${LOG_MAX_FILES}" ]]; then
+            rm -f "${LOGFILE}.${LOG_MAX_FILES}"
+        fi
+        # Verschiebe die vorhandenen Dateien
+        for ((i=LOG_MAX_FILES-1; i>=1; i--)); do
+            if [[ -f "${LOGFILE}.${i}" ]]; then
+                mv -f "${LOGFILE}.${i}" "${LOGFILE}.$((i+1))"
+            fi
+        done
+        # Aktuelle Log‑Datei wird zur Version 1
+        mv -f "$LOGFILE" "${LOGFILE}.1"
+        # Neue, leere Log‑Datei erzeugen
+        touch "$LOGFILE"
+        chmod 640 "$LOGFILE"
+        chown root:root "$LOGFILE"
+    fi
+}
+
+# -----------------------------------------------------------------------
+# Protokollierung
+# -----------------------------------------------------------------------
+log() {
+    rotate_log                 # prüft/rotiert bei Bedarf
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >>"$LOGFILE"
+}
+
+# -----------------------------------------------------------------------
+# Hauptlogik
+# -----------------------------------------------------------------------
+log "Starte Lösch‑Aufgabe im Verzeichnis: $TARGET_DIR"
+
+# Prüfe, ob überhaupt ein Ordner gefunden wird
+if ! find "$TARGET_DIR" -type d -name "$PREFIX*" -print -quit | grep -q . ; then
+    log "Keine Ordner mit Präfix '$PREFIX' gefunden."
+    exit 0
+fi
+
+# Lösche alle gefundenen Ordner
+find "$TARGET_DIR" -type d -name "$PREFIX*" -print0 | while IFS= read -r -d '' dir; do
+    # Sicherheits‑Check: Pfad muss wirklich im Zielverzeichnis liegen
+    case "$dir" in
+        "$TARGET_DIR"/*) ;;
+        *) 
+            log "WARNUNG: Ordner außerhalb des Zielverzeichnisses gefunden: $dir – überspringe!"
+            continue
+            ;;
+    esac
+
+    log "Lösche Ordner: $dir"
+    rm -rf -- "$dir"
+    log "Erfolgreich gelöscht: $dir"
+done
+
+log "Lösch‑Aufgabe abgeschlossen."
+
+# -----------------------------------------------------------------------
+# Ende des Skripts
+# -----------------------------------------------------------------------
+# Lockfile wird automatisch freigegeben, wenn das Skript endet
+```
+```bash
+sudo chmod 700 /home/deploy/cleanup_data_corpses.sh
+sudo chown root:root /home/deploy/cleanup_data_corpses.sh
+```
+```bash
+sudo crontab -e
+```
+```bash
+*/5 * * * * /home/deploy/cleanup_data_corpses.sh
+```
+
 ## Dienste einrichten
 Falls die Anwendung permanent laufen soll. Also z.B. für Testsysteme.
 
