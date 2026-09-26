@@ -121,13 +121,15 @@
                                 <span class="status-stopping">stoppend</span>
                             {% elif p.status == 'starting' %}
                                 <span class="status-starting">startend</span>
+                            {% elif p.status == 'restarting' %}
+                                <span class="status-error">neu startend</span>
                             {% else %}
                                 <span class="status-error">fehlerhaft</span>
                             {% endif %}
                         </td>
 
                         <td class="action-cell">
-                            {% if p.status in 'running,deleting,stopped,stopping,starting,error' %}
+                            {% if p.status in 'running,deleting,stopped,stopping,starting,error,restarting' %}
                                 <form method="post" action="{% url 'paas_delete_app' p.pk %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="first_step" value="1">

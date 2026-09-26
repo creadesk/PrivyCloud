@@ -312,7 +312,7 @@ LOGDIR="/home/deploy"
 LOGFILE="${LOGDIR}/cleanup_data_corpses.log"
 
 # Log‑Rotation‑Parameter
-LOG_MAX_SIZE=10485760      # 10 MiB   → max. Dateigröße vor Rotation
+LOG_MAX_SIZE=10485760      # 10MiB   → max. Dateigröße vor Rotation
 LOG_MAX_FILES=5            # 5 Back‑Up‑Dateien
 
 # Lock‑Datei (nur eine Instanz gleichzeitig)
@@ -333,14 +333,17 @@ if [[ ! -d "$TARGET_DIR" ]]; then
     exit 1
 fi
 
-# 3. Verzeichnisse für Log & Lock erzeugen (falls noch nicht vorhanden)
-mkdir -p "$LOGDIR" "$LOCKFILE" 2>/dev/null
-chmod 755 "$LOGDIR" "$LOCKFILE"
+# 3. Verzeichnisse für Log erzeugen (falls noch nicht vorhanden)
+mkdir -p "$LOGDIR" 2>/dev/null
+# Lock‑Datei selbst erzeugen (falls sie noch nicht existiert)
+touch "$LOCKFILE"
+chmod 640 "$LOCKFILE"        
+chown root:root "$LOCKFILE"
 
 # 4. Log‑Datei initialisieren (falls noch nicht vorhanden)
 if [[ ! -f "$LOGFILE" ]]; then
     touch "$LOGFILE"
-    chmod 640 "$LOGFILE"
+    chmod 755 "$LOGFILE"
     chown root:root "$LOGFILE"
 fi
 
@@ -379,7 +382,7 @@ rotate_log() {
         mv -f "$LOGFILE" "${LOGFILE}.1"
         # Neue, leere Log‑Datei erzeugen
         touch "$LOGFILE"
-        chmod 640 "$LOGFILE"
+        chmod 755 "$LOGFILE"
         chown root:root "$LOGFILE"
     fi
 }

@@ -386,6 +386,7 @@ def my_apps(request):
           f"{base_img}:{t.tag}"
           for t in tags
       ]
+      print(p.status)
 
   return render(request, 'paas/my_apps.html', {
       'provisions': provisions,
@@ -405,7 +406,7 @@ def delete_app(request, pk):
     print(provision.status)
 
     # App darf nur laufen oder gelöscht werden
-    if provision.status not in ('running', 'deleting', 'stopped', 'error'):
+    if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting'):
         # Nicht‑zulässige App – einfach weiterleiten
         return render(request, 'paas/my_apps.html', {
             'provisions': provisions,
