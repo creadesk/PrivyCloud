@@ -604,12 +604,12 @@ def delete_image(request, host_id, image_id):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
-    # Host holen
+    # ---- Host holen -----------------------------------------
     host = get_object_or_404(RemoteHost, pk=host_id)
 
-    # Image‑Existenz & Status prüfen
-    images = host.docker_images()                     # ← Model‑Helper
-    image = next((img for img in images if img['image_id'] == image_id), None)
+    # ---- Image‑Existenz & Status prüfen --------------------
+    images = host.docker_images()                         # Model‑Helper
+    image  = next((img for img in images if img['image_id'] == image_id), None)
 
     if image is None:
         messages.error(request, f"Image {image_id} nicht gefunden auf Host {host}.")
@@ -619,34 +619,19 @@ def delete_image(request, host_id, image_id):
         messages.error(request, f"Image {image_id} ist im Einsatz auf Host {host}.")
         return redirect('paas_images')
 
-    # SSH‑Verbindung & Docker‑Remove
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
+    # ---- SSH‑Verbindung & Docker‑Remove --------------------
     try:
-        client.connect(
-            hostname=host.hostname,
-            username=host.ssh_user,
-            key_filename=host.ssh_key_path,  # ausschließlich das File nutzen
-            timeout=10,
-            allow_agent=False,
-            look_for_keys=False,
-        )
+        with _ssh_client(host) as ssh:
+            cmd = f"docker rmi {image_id}"
+            _, stdout, stderr = ssh.exec_command(cmd)
 
-        cmd = f'docker rmi {image_id}'
-        _, stdout, stderr = client.exec_command(cmd)
-
-        err = stderr.read().decode().strip()
-        if err:
-            messages.error(request, f"Löschen fehlgeschlagen auf Host {host}: {err}")
-        else:
-            messages.success(request, f"Image {image_id} erfolgreich gelöscht auf Host {host}.")
-
-    except Exception as exc:
-        messages.error(request, f"SSH error on {host}: {exc}")
-
-    finally:
-        client.close()
+            err = stderr.read().decode().strip()
+            if err:
+                messages.error(request, f"Löschen fehlgeschlagen auf Host {host}: {err}")
+            else:
+                messages.success(request, f"Image {image_id} erfolgreich gelöscht auf Host {host}.")
+    except Exception as exc:          # generische Ausnahme genügt – _ssh_client kümmert sich um close()
+        messages.error(request, f"SSH‑Fehler bei Host {host}: {exc}")
 
     return redirect('paas_images')
 

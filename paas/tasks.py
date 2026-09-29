@@ -131,21 +131,49 @@ class LocalSSH:
 # ----------------------------------------------------------------------
 # SSH‑Hilfsfunktionen
 # ----------------------------------------------------------------------
+def load_ssh_config(hostname: str):
+    """
+    Liest ~/.ssh/config und gibt die Optionen für *hostname* zurück.
+    """
+    cfg = paramiko.SSHConfig()
+    cfg_file = os.path.expanduser("~/.ssh/config")
+    if not os.path.exists(cfg_file):
+        raise FileNotFoundError(f"{cfg_file} nicht gefunden")
+
+    with open(cfg_file) as f:
+        cfg.parse(f)
+
+    # Das lookup liefert ein dict, z.B. {'user': 'deploy', 'identityfile': ['/home/user/.ssh/deploy_key']}
+    return cfg.lookup(hostname)
+
 @contextlib.contextmanager
 def _ssh_client(host: "RemoteHost") -> Generator:
-    # Remote‑Host
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(
-        hostname=host.hostname,
-        username=host.ssh_user,
-        key_filename=str(Path(host.ssh_key_path).expanduser()),
-        timeout=15,
-    )
+    """
+        Öffnet einen Paramiko‑Client, der ausschließlich die in ~/.ssh/config
+        hinterlegten Keys verwendet.
+        """
+    # 1. Config‑Optionen holen
+    opts = load_ssh_config(host.hostname)
+
+    user = opts.get('user', host.ssh_user)  # fallback auf Model‑Feld
+    key_files = opts.get('identityfile', [])  # Liste von Pfaden
+    key_file = key_files[0] if key_files else None  # erster Key
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
     try:
-        yield ssh
+        client.connect(
+            hostname=host.hostname,
+            username=user,
+            key_filename=key_file,  # expliziter Pfad
+            allow_agent=False,  # Agent nicht nutzen
+            look_for_keys=False,  # keine weiteren Keys suchen
+            timeout=10,
+        )
+        yield client
     finally:
-        ssh.close()
+        client.close()
 
 
 def _run_cmd(ssh, cmd: str):

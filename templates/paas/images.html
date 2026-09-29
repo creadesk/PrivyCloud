@@ -22,6 +22,14 @@
 {% block content %}
 <h1>Docker Images – {{ PLATFORM_NAME }}</h1>
 
+{% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
 {% for entry in images %}
     <h2>Host: {{ entry.host.hostname }} ({{ entry.host.ip_address }})</h2>
     {% if entry.images %}

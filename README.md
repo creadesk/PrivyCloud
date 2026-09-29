@@ -284,6 +284,9 @@ Host <ZIEL_IP>
     User deploy
     IdentityFile <PFAD_ZUM_KEY>
 ```
+>Der Client nutzt ab v0.1.0 ausschließlich die in `~/.ssh/config` hinterlegten Keys.
+>Stelle sicher, dass der deploy user ein gültiges private Key‑File hat
+>(keine Passphrase) und die Berechtigungen 600 besitzen.
 
 
 #### Bereinigungsrouine für Datenrückstände
@@ -337,7 +340,7 @@ fi
 mkdir -p "$LOGDIR" 2>/dev/null
 # Lock‑Datei selbst erzeugen (falls sie noch nicht existiert)
 touch "$LOCKFILE"
-chmod 640 "$LOCKFILE"        
+chmod 640 "$LOCKFILE"
 chown root:root "$LOCKFILE"
 
 # 4. Log‑Datei initialisieren (falls noch nicht vorhanden)

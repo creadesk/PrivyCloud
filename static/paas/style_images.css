@@ -248,3 +248,20 @@ table form { display: inline; }
         margin-left: 0;           /* Button wird nicht mehr am rechten Rand */
     }
 }
+
+.messages {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+.messages li {
+    background: #fff3cd;          /* helles Gelb */
+    border: 1px solid #ffeeba;    /* etwas dunkleres Gelb */
+    color: #856404;               /* dunkles Gelb‑Orange */
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+.messages li.error   { background:#f8d7da; border-color:#f5c2c7; color:#842029; }
+.messages li.warning { background:#fff3cd; border-color:#ffeeba; color:#856404; }
+.messages li.success { background:#d1e7dd; border-color:#c3e6cb; color:#0f5132; }

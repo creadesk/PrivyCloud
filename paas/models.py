@@ -9,7 +9,57 @@ import uuid
 import docker
 import shlex
 import paramiko
+import os
+from contextlib import contextmanager
 
+
+# --------------------------------------------------------------------
+# Hilfsfunktion: ~/.ssh/config auslesen
+# --------------------------------------------------------------------
+def _ssh_config_lookup(hostname: str) -> dict:
+    """
+    Liest ~/.ssh/config und gibt die für *hostname* gültigen Optionen zurück.
+    """
+    cfg = paramiko.SSHConfig()
+    cfg_file = os.path.expanduser("~/.ssh/config")
+
+    if not os.path.exists(cfg_file):
+        raise FileNotFoundError(f"{cfg_file} nicht gefunden")
+
+    with open(cfg_file, encoding="utf-8") as f:
+        cfg.parse(f)
+
+    return cfg.lookup(hostname)
+
+# --------------------------------------------------------------------
+# 1. Context‑Manager für SSH‑Client (ohne Agent / Key‑Search)
+# --------------------------------------------------------------------
+@contextmanager
+def _ssh_client(host):
+    """
+    Erzeugt einen Paramiko‑SSH‑Client, der ausschließlich die in
+    ~/.ssh/config hinterlegten Keys benutzt.
+    """
+    cfg_opts = _ssh_config_lookup(host.hostname)
+
+    username    = cfg_opts.get("user", host.ssh_user)          # Fallback auf das DB‑Feld
+    key_file    = cfg_opts.get("identityfile", [None])[0]      # erstes in der Config
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        client.connect(
+            hostname=host.hostname,
+            username=username,
+            key_filename=key_file,
+            timeout=10,
+            allow_agent=False,          # Agent explizit ausschalten
+            look_for_keys=False,        # Keine automatischen Key‑Suche
+        )
+        yield client
+    finally:
+        client.close()
 
 
 class AppDefinition(models.Model):
@@ -116,7 +166,7 @@ class RemoteHost(models.Model):
     hostname        = models.CharField(max_length=128, unique=True)
     ip_address      = models.GenericIPAddressField()
     ssh_user        = models.CharField(max_length=32, default='root')
-    ssh_key_path    = models.CharField(max_length=256, null=True, blank=True)
+    #ssh_key_path    = models.CharField(max_length=256, null=True, blank=True)
 
     # ----------   Neues Feld  ------------------------------------
     nur_superuser   = models.BooleanField(
@@ -149,71 +199,59 @@ class RemoteHost(models.Model):
     # ----------------------------------------------------------------
     def docker_images(self):
         """
-        Rückgabe: Liste von Dictionaries
+        Liefert eine Liste von Docker‑Images des Hosts.
+        Jede Eintragung enthält:
 
-        [
-            {
-                'repository': 'myapp',
-                'tag': 'v1.0',
-                'image_id': '2c6c9d0b9f3a',
-                'size': '512MB',
-                'used': True,
-            },
-            ...
-        ]
+        {
+            'repository': str,
+            'tag':        str,
+            'image_id':   str,
+            'size':       str,
+            'used':       bool
+        }
         """
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
         try:
-            # -- 1. SSH‑Verbindung herstellen
-            client.connect(
-                hostname=self.hostname,
-                username=self.ssh_user,
-                key_filename=self.ssh_key_path,  # ausschließlich das File benutzen
-                timeout=10,
-                allow_agent=False,  # keine Agent‑Keys
-                look_for_keys=False,  # keine weiteren Keys suchen
-            )
+            with _ssh_client(self) as ssh:
+                # --------------------------------------------------------
+                # 1. Aktive Container‑Images ermitteln (docker ps)
+                # --------------------------------------------------------
+                used_cmd = r'docker ps --format "{{.Image}}"'
+                _, stdout, _ = ssh.exec_command(used_cmd)
+                used_imgs = {line.strip()
+                             for line in stdout.read().decode().splitlines()
+                             if line.strip()}
+
+                # --------------------------------------------------------
+                # 2. Alle Images (docker images)
+                # --------------------------------------------------------
+                img_cmd = (
+                    r'docker images '
+                    r'--format "{{.Repository}} {{.Tag}} {{.ID}} {{.Size}}"'
+                )
+                _, stdout, _ = ssh.exec_command(img_cmd)
+                raw = stdout.read().decode()
+
+                images = []
+                for line in raw.splitlines():
+                    if not line.strip():
+                        continue
+                    repo, tag, img_id, size = line.split(maxsplit=3)
+                    used = f"{repo}:{tag}" in used_imgs
+                    images.append({
+                        'repository': repo,
+                        'tag': tag,
+                        'image_id': img_id,
+                        'size': size,
+                        'used': used,
+                    })
+
+                return images
+
         except Exception as exc:
-            # Verbindungs‑ oder Authentifizierungs‑Fehler → leere Liste
-            client.close()
+            # Bei jedem Fehler (Verbindung, Auth, Kommando, etc.)
+            # wird eine leere Liste zurückgegeben – so bleibt die UI robust.
+            # (Optional: Logging hier einfügen)
             return []
-
-        try:
-            # --------------------------------------------------------------
-            # 2. Welche Images werden gerade verwendet? (docker ps)
-            # --------------------------------------------------------------
-            used_cmd = r'docker ps --format "{{.Image}}"'
-            stdin, stdout, stderr = client.exec_command(used_cmd)
-            used_imgs = set(line.strip() for line in stdout.read().decode().splitlines())
-
-            # --------------------------------------------------------------
-            # 3. Alle Images holen (docker images)
-            # --------------------------------------------------------------
-            img_cmd = (
-                r'docker images '
-                r'--format "{{.Repository}} {{.Tag}} {{.ID}} {{.Size}}"'
-            )
-            stdin, stdout, stderr = client.exec_command(img_cmd)
-            raw = stdout.read().decode()
-
-            images = []
-            for line in raw.splitlines():
-                if not line.strip():
-                    continue
-                repo, tag, img_id, size = line.split(maxsplit=3)
-                used = f"{repo}:{tag}" in used_imgs
-                images.append({
-                    'repository': repo,
-                    'tag': tag,
-                    'image_id': img_id,
-                    'size': size,
-                    'used': used,
-                })
-            return images
-        finally:
-            client.close()
 
 class ProvisionedApp(models.Model):
   """Aufgezeichnete Bereitstellungen."""

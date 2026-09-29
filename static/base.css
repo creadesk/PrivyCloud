@@ -100,3 +100,9 @@ a {
     color: whitesmoke;
 }
 
+.app-version {
+    font-size: 0.75rem;          /* kleiner als der Rest */
+    color: #666;                 /* grauer Text */
+    margin-left: 1rem;           /* etwas Abstand */
+    vertical-align: middle;      /* mittig ausrichten */
+}
