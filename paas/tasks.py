@@ -353,9 +353,9 @@ def _build_torrc(app_def: AppDefinition,
     ]
 
     # Bedingte Zeilen hinzufügen
-    if app_def.app_port_intern_web != 1:
+    if app_def.app_port_intern_web != 1 and app_def.hiddenservice_port_web !=1:
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_web} 127.0.0.1:{free_port_web}")
-    if app_def.app_port_intern_api != 1:
+    if app_def.app_port_intern_api != 1 and app_def.hiddenservice_port_api !=1:
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_api} 127.0.0.1:{free_port_api}")
 
     # Alle Zeilen zu einem String mit Zeilenumbrüchen zusammenfügen
@@ -925,7 +925,7 @@ WantedBy=default.target
             provision.save(update_fields=["container_id", "port", "port2", "status", "log"])
 
             provision.onion_address = onion_addr
-            provision.log += f"\nOnion‑Service erstellt: http://{onion_addr}:80"
+            provision.log += f"\nOnion‑Service erstellt: http://{onion_addr}"
             provision.save(update_fields=["onion_address", "log"])
 
             provision.docker_run_cmd = docker_cmd

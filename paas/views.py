@@ -424,7 +424,7 @@ def delete_app(request, pk):
     # ---------- 2. Schritt – Löschen ----------
     if request.method == 'POST' and 'confirmed' in request.POST:
         # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
-        if provision.status not in ('running', 'deleting', 'stopped', 'error'):
+        if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting'):
             return render(request, 'paas/my_apps.html', {
                 'provisions': provisions,
                 "PLATFORM_NAME": PLATFORM_NAME,

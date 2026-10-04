@@ -32,7 +32,7 @@
 
        <!-- Web-Adresse, wenn vorhanden -->
       <dt>Adresse(Onion)</dt>
-      {% if provision.app.app_port_intern_web != 1 and provision.onion_address != "" %}
+      {% if provision.app.app_port_intern_web != 1 and provision.app.hiddenservice_port_web != 1 and provision.onion_address != "" %}
         <dd><a href="http://{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}" target="_blank">http://{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_web }}</a></dd>
       {% else %}
           <dd>X</dd>
@@ -47,7 +47,7 @@
 
       <!-- API-Adresse, wenn vorhanden -->
       <dt>Adresse-API(Onion)</dt>
-      {% if provision.app.app_port_intern_api != 1 and provision.onion_address != "" %}
+      {% if provision.app.app_port_intern_api != 1 and provision.app.hiddenservice_port_api != 1 and provision.onion_address != "" %}
           <dd>{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_api }}</dd>
       {% else %}
           <dd>X</dd>

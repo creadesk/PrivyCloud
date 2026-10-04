@@ -61,7 +61,7 @@
                         {% endif %}
                         <td>
                             {% if p.app.app_port_intern_web != 1 %}
-                                 {% if p.onion_address %}
+                                 {% if p.onion_address and p.app.hiddenservice_port_web != 1 %}
                                  <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Onion</a>
                                  {% endif %}
                                  {% if p.host and p.port %}
@@ -74,7 +74,7 @@
 
                         <td>
                             {% if p.app.app_port_intern_api != 1 %}
-                                {% if p.onion_address %}
+                                {% if p.onion_address and p.app.hiddenservice_port_api != 1 %}
                                 <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Onion</a>
                                 {% endif %}
                                 {% if p.host and p.port2 %}
