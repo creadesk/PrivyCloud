@@ -3,6 +3,7 @@
 > Eine Django‑basierte Plattform, die es Nutzern ermöglicht,
 > Container‑Apps zu deployen, zu skalieren und zu verwalten.
 > Die bereitgestellten Apps können als TOR-Hidden-Service veröffentlicht werden. 
+> Es handelt sich um ein experimentelles privates Projekt und sollte nicht ungeprüft produktiv genutzt werden.
 
 # Inhaltsverzeichnis
 
@@ -289,7 +290,7 @@ Host <ZIEL_IP>
 >(keine Passphrase) und die Berechtigungen 600 besitzen.
 
 
-#### Bereinigungsrouine für Datenrückstände
+#### Bereinigungsroutine für Datenrückstände
 ```bash
 sudo nano /home/deploy/cleanup_data_corpses.sh
 ```
@@ -444,7 +445,7 @@ sudo crontab -e
 ```
 
 ## Dienste einrichten
-Falls die Anwendung permanent laufen soll. Also z.B. für Testsysteme.
+Falls die Anwendung permanent laufen soll. 
 
 ### Celery
 ```bash
@@ -583,6 +584,8 @@ docker run -d \
   -e REDIS_SERVER_IP=<ip_redis_server> \
   -e REDIS_SERVER_PORT=<port_redis_server> \
   -e REDIS_SERVER_DB=<db_redis_server> \
+  -e USER_RATELIMIT_PER_HOUR=200 \
+  -e IP_RATELIMIT_PER_MINUTE=10 \
   <docker_image_name>
 ```
 

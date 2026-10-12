@@ -129,7 +129,7 @@
                         </td>
 
                         <td class="action-cell">
-                            {% if p.status in 'running,deleting,stopped,stopping,starting,error,restarting' %}
+                            {% if p.status in 'running,deleting,stopped,stopping,starting,error,restarting,pending' %}
                                 <form method="post" action="{% url 'paas_delete_app' p.pk %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="first_step" value="1">

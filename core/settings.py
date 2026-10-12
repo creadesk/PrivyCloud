@@ -181,8 +181,8 @@ RATELIMIT_REDIS = {
     'port': REDIS_SERVER_PORT,
     'db': REDIS_SERVER_DB,
 }
-USER_RATELIMIT_PER_HOUR = 100
-IP_RATELIMIT_PER_MINUTE = 10
+USER_RATELIMIT_PER_HOUR = os.getenv('USER_RATELIMIT_PER_HOUR', 200)
+IP_RATELIMIT_PER_MINUTE = os.getenv('IP_RATELIMIT_PER_MINUTE', 10)
 
 # -------------------------------------------------------------
 # Celery Basic Settings – Redis TTL = 900 Sekunden (15 Minuten)

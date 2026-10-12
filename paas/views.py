@@ -71,7 +71,7 @@ def _check_user_limits(user, requested_duration, request):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def select_app(request):
   # ──────────────────────── Formular‑Klasse bestimmen ─────────────────────
   FormCls = DeployFormAdmin if request.user.is_superuser else DeployForm
@@ -115,7 +115,7 @@ def select_app(request):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def deploy_app(request):
     # ──────────────────────── Formular‑Klasse bestimmen ─────────────────────
     FormCls = DeployFormAdmin if request.user.is_superuser else DeployForm
@@ -345,7 +345,7 @@ def render_deploy(request, error=None, app_def=None):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def deploy_success(request, pk):
   provision = ProvisionedApp.objects.get(pk=pk, user=request.user)
   # Der Task hat eventuell ein Attribut `._tor_private_key` angehängt.
@@ -357,7 +357,7 @@ def deploy_success(request, pk):
   })
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def my_apps(request):
   """
   Zeigt die Apps des Benutzers an. Vor dem Rendern wird für jede
@@ -395,7 +395,7 @@ def my_apps(request):
   })
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def delete_app(request, pk):
     """
     2‑Schritt‑Delete: Erstes POST → Bestätigungsseite, zweites POST → Löschen
@@ -406,7 +406,7 @@ def delete_app(request, pk):
     print(provision.status)
 
     # App darf nur laufen oder gelöscht werden
-    if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting'):
+    if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting', 'pending'):
         # Nicht‑zulässige App – einfach weiterleiten
         return render(request, 'paas/my_apps.html', {
             'provisions': provisions,
@@ -450,7 +450,7 @@ def delete_app(request, pk):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def stop_app(request, pk):
     provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
     provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
@@ -474,7 +474,7 @@ def stop_app(request, pk):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def start_app(request, pk):
     provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
     provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
@@ -499,7 +499,7 @@ def start_app(request, pk):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def update_provisioned_app(request):
     """
     POST‑Request, um einen laufenden Container sofort auf ein neues
@@ -564,7 +564,7 @@ def update_provisioned_app(request):
 
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def images(request):
     """
     Liefert alle heruntergeladenen images pro host.
@@ -592,7 +592,7 @@ def images(request):
     })
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def delete_image(request, host_id, image_id):
     """
     Löscht ein Docker‑Image, das auf dem Host **nicht** mehr verwendet wird.
@@ -622,7 +622,7 @@ def delete_image(request, host_id, image_id):
     # ---- SSH‑Verbindung & Docker‑Remove --------------------
     try:
         with _ssh_client(host) as ssh:
-            cmd = f"docker rmi {image_id}"
+            cmd = f"docker rmi -f {image_id}"
             _, stdout, stderr = ssh.exec_command(cmd)
 
             err = stderr.read().decode().strip()
@@ -639,7 +639,7 @@ def delete_image(request, host_id, image_id):
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def docker_logs(request, provision_id: int) -> HttpResponse:
     """
     Zeigt die letzten <lines> Zeilen des Docker‑Logs des Container‑IDs,
@@ -723,7 +723,7 @@ def _run_cmd_bytes(ssh, command: str) -> Tuple[int, bytes, bytes]:
 # ---------------------------------
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h')
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def application_logs(request, pk):
     provision = get_object_or_404(ProvisionedApp, pk=pk)
 
@@ -805,6 +805,7 @@ def _list_remote_dirs(ssh, home_dir: str) -> List[str]:
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 @require_http_methods(["GET", "POST"])
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def data_corpses(request):
     """
     Show a list of directories in the *deploy user* home directory of
@@ -858,6 +859,7 @@ def data_corpses(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 @require_POST
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def mark_delete(request):
     """
     Rename a directory on the target host by prefixing it with
@@ -916,6 +918,7 @@ def mark_delete(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 @require_http_methods(["GET"])
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def paas_log_cleanup(request, host_id):
     """Return the cleanup log of a specific RemoteHost."""
     # Only super‑admins may use this endpoint

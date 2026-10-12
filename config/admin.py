@@ -8,6 +8,7 @@ class PlatformSettingAdmin(admin.ModelAdmin):
   search_fields = ("key", "value")
 '''
 
+# Rate Limiting in Admin Panel unsichtbar machen
 from django.contrib import admin
 from django.apps import apps
 
