@@ -80,6 +80,13 @@ class AppDefinition(models.Model):
       max_length=256,
       help_text="Registry + Image‑Name (ohne Tag), z.B. 'docker.io/louislam/uptime‑kuma'.",
   )
+  command = models.TextField(
+      blank=True,
+      help_text=(
+          "Befehle und Argumente, die im Container ausgeführt werden. "
+          "Überschreibt normalerweise den Standardbefehl (CMD) des Images."
+      ),
+  )
 
   description = models.TextField(blank=True)
   default_duration = models.PositiveIntegerField(default=1)  # Stunden

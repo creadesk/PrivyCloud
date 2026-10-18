@@ -900,6 +900,10 @@ WantedBy=default.target
             # cmd_parts.append(app_def.docker_image)
             cmd_parts.append(selected_image)
 
+            cmd = app_def.command.strip()
+            if cmd:
+                cmd_parts.append(cmd)
+
             docker_cmd = " ".join(cmd_parts)
             print(f"[deploy_app_task] Docker‑Cmd: {docker_cmd}")  # Debug‑Ausgabe
 
