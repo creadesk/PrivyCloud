@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'two_factor',
 ]
 
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',

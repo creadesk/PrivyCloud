@@ -406,7 +406,7 @@ def delete_app(request, pk):
     print(provision.status)
 
     # App darf nur laufen oder gelöscht werden
-    if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting', 'pending'):
+    if provision.status not in ('running', 'deleting', 'stopped', 'stopping', 'error', 'restarting', 'pending'):
         # Nicht‑zulässige App – einfach weiterleiten
         return render(request, 'paas/my_apps.html', {
             'provisions': provisions,
@@ -424,7 +424,7 @@ def delete_app(request, pk):
     # ---------- 2. Schritt – Löschen ----------
     if request.method == 'POST' and 'confirmed' in request.POST:
         # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
-        if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting'):
+        if provision.status not in ('running', 'deleting', 'stopped', 'stopping', 'error', 'restarting', 'pending'):
             return render(request, 'paas/my_apps.html', {
                 'provisions': provisions,
                 "PLATFORM_NAME": PLATFORM_NAME,
@@ -458,12 +458,13 @@ def stop_app(request, pk):
     # ---------- Stoppen ----------
     if request.method == 'POST':
         # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
-        if provision.status not in ('running'):
+        print(provision.status)
+        if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting', 'pending'):
             return redirect("paas_my_apps")
 
         provision.status = 'stopping'
         provision.save()
-
+        print("Stoppe Container")
         provision.stop_container()
 
         # Nach erfolgreichem stoppen Weiterleitung

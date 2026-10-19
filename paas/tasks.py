@@ -372,6 +372,7 @@ def _cleanup_provision(provision: ProvisionedApp):
     with _ssh_client(host) as ssh:
         # 1. Container entfernen
         if provision.container_id:
+            print(f"docker rm -f {provision.container_id}")
             _run_cmd(ssh, f"docker rm -f {provision.container_id}")
             provision.log += f"\nContainer {provision.container_id} removed."
             provision.container_id = None
@@ -568,7 +569,7 @@ def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: Pro
         # ------------------------------------------------------------------
         # Warten, bis die Datei auf dem Remote‑Host existiert
         # ------------------------------------------------------------------
-        if not _file_exists(ssh, file_path, timeout=120, interval=2.0):
+        if not _file_exists(ssh, file_path, timeout=180, interval=5.0):
             raise FileNotFoundError(
                 f"Target file {file_path} not found on remote host after waiting."
             )
@@ -595,7 +596,7 @@ def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: Pro
             # Escape slashes in replacement
             replacement_escaped = replacement.replace('/', r'\/')
             cmd = (
-                f"sed -i \"s/^{patch.pattern}/{replacement_escaped}/\" {file_path}"
+                f"sed -i 's/{patch.pattern}/{replacement_escaped}/' {file_path}"
             )
             print(f"[PATCH REPLACE] {cmd}")
             exit_code, out, err = _run_cmd(ssh, cmd)
@@ -763,7 +764,7 @@ def simple_task():
     return "Test successful"
 
 
-@shared_task(bind=True, max_retries=5, default_retry_delay=60)
+@shared_task(bind=True, max_retries=0)
 def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, tor_auth_type=None, tor_pub_key=None, **kwargs):
     """Deploy einer App als Docker‑Container + Tor‑Hidden‑Service."""
     provision = None

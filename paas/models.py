@@ -465,13 +465,16 @@ class ProvisionedApp(models.Model):
 
           container = client.containers.get(self.container_id)
 
-          if container.status != 'running' and container.status != 'stopping':
-              print(f"stop_container: Container läuft nicht (status={container.status})")
+          if container.status not in ('running', 'deleting', 'stopped', 'error', 'restarting', 'pending'):
+              print(f"stop_container: Container wird nicht gestoppt, Grund: (status={container.status})")
               self.status = 'stopped'
               return True
 
           print(f"stop_container: Stoppe Container {self.container_id}")
-          container.stop(timeout=timeout)
+          try:
+              container.stop(timeout=timeout)
+          except Exception:
+              container.kill()
           # Optional: warten bis Docker `exited` meldet
           #container.wait(condition='exited')
 
