@@ -569,7 +569,7 @@ def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: Pro
         # ------------------------------------------------------------------
         # Warten, bis die Datei auf dem Remote‑Host existiert
         # ------------------------------------------------------------------
-        if not _file_exists(ssh, file_path, timeout=180, interval=5.0):
+        if not _file_exists(ssh, file_path, timeout=60, interval=6.0):
             raise FileNotFoundError(
                 f"Target file {file_path} not found on remote host after waiting."
             )
@@ -764,9 +764,10 @@ def simple_task():
     return "Test successful"
 
 
-@shared_task(bind=True, max_retries=0)
+@shared_task(bind=True, name="paas.deploy_app_task")
 def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None, tor_auth_type=None, tor_pub_key=None, **kwargs):
     """Deploy einer App als Docker‑Container + Tor‑Hidden‑Service."""
+    logger.info("Starte deploy_app_task")
     provision = None
     try:
         provision = ProvisionedApp.objects.select_related("app", "host").get(pk=provision_id)
@@ -918,26 +919,30 @@ WantedBy=default.target
             if not container_id:
                 raise RuntimeError("Kein Container‑ID zurückgegeben")
 
-            # Jetzt die Config‑Patches anwenden
-            _apply_patches(ssh, app_def, host, provision, onion_addr)
-
-            # Basis‑Daten persistieren
+            # Basis‑Daten sofort persistieren
             provision.container_id = container_id
             provision.port = free_port_web
             provision.port2 = free_port_api
             provision.status = "running"
             provision.log = f"Container {container_id} läuft auf Port {free_port_web}"
             provision.save(update_fields=["container_id", "port", "port2", "status", "log"])
-
             provision.onion_address = onion_addr
             provision.log += f"\nOnion‑Service erstellt: http://{onion_addr}"
             provision.save(update_fields=["onion_address", "log"])
-
             provision.docker_run_cmd = docker_cmd
             provision.save(update_fields=["docker_run_cmd"])
-
             provision.image = selected_image
             provision.save(update_fields=["image"])
+
+            # Jetzt die Config‑Patches anwenden
+            try:
+                _apply_patches(ssh, app_def, host, provision, onion_addr)
+            except Exception as patch_err:
+                # Patch‑Fehler: Status ändern, Log erweitern, aber nicht zurücksetzen
+                provision.status = "error"
+                provision.log += f"\nPatch‑Fehler: {patch_err}"
+                provision.save(update_fields=["status", "log"])
+                raise  # Celery markiert Task als fehlgeschlagen
 
             # *** Rückgabe‑Logik ***
             # Nach erfolgreichem Deploy können wir das Objekt zurückschicken,

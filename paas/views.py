@@ -113,9 +113,25 @@ def select_app(request):
       "PLATFORM_NAME": PLATFORM_NAME,
   })
 
+def should_skip_ratelimit(request):
+    result = (
+        request.user.is_authenticated
+        and request.user.is_superuser
+    )
+
+    print(
+        f"SKIP_IF method={request.method} "
+        f"path={request.path} "
+        f"user={request.user.pk} "
+        f"superuser={request.user.is_superuser} "
+        f"result={result}"
+    )
+    return result
 
 @login_required
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
+#@rate_limit(key="user", rate=f"{USER_RATELIMIT_PER_HOUR}/h", skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
+#@rate_limit(key="user", rate=f"{USER_RATELIMIT_PER_HOUR}/h", skip_if=should_skip_ratelimit)
+@rate_limit(key="user", rate=f"{USER_RATELIMIT_PER_HOUR}/h",) #skip_if führt bei Fehler zu Doppelausführung der view, daher hier rausgenommen, wahrsch. Bug in django_smart_ratelimit/decorator.py
 def deploy_app(request):
     # ──────────────────────── Formular‑Klasse bestimmen ─────────────────────
     FormCls = DeployFormAdmin if request.user.is_superuser else DeployForm
@@ -163,6 +179,7 @@ def deploy_app(request):
                 "PLATFORM_NAME": PLATFORM_NAME,
             })
         else:
+            print("Starte _handle_deploy")
             return _handle_deploy(request,form)
 
 
