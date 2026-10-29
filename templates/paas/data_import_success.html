@@ -1,0 +1,20 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Import-Success{% endblock %}
+{% block stylesheet %}{% static 'paas/style_data_import.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Import-Success{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+
+    <h1>Import erfolgreich!</h1>
+
+</div>
+{% endblock %}

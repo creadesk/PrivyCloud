@@ -1,17 +1,19 @@
+import json
 import os
 
-import paramiko
-from django.conf import settings
+from django import forms
+from django.db import transaction
+from django.db.models import Prefetch
 from django.utils.translation import gettext_lazy as _
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
-from datetime import timedelta
 from django.utils import timezone
 from django.urls import reverse
 from django.utils.dateparse import parse_duration
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag
+from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag, AppVolumePerApp, \
+    ConfigPatch
 from .forms import DeployForm, DeployFormAdmin
 from .strategies import LeastLoadStrategy
 from .tasks import deploy_app_task, delete_container_task, update_app_task, _gen_x25519_keypair, _b32_encode, \
@@ -19,11 +21,9 @@ from .tasks import deploy_app_task, delete_container_task, update_app_task, _gen
 from core.settings import PLATFORM_NAME, USER_RATELIMIT_PER_HOUR, STRING_TO_ADMIN_PATH
 from django_smart_ratelimit import rate_limit
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseForbidden, HttpResponseNotAllowed, HttpResponseNotFound, HttpResponseServerError, \
-    HttpResponseBadRequest
+from django.http import HttpResponseNotAllowed, HttpResponseNotFound, HttpResponseServerError, \
+    HttpResponseBadRequest, Http404
 from django.contrib import messages
-from cryptography.hazmat.primitives.asymmetric import x25519
-from cryptography.hazmat.primitives import serialization
 from django.http import HttpResponse, HttpResponseForbidden
 import re
 from typing import Tuple, Dict, List
@@ -194,11 +194,20 @@ def _handle_deploy(request, form):
 
     # Das ausgewählte Image holen
     selected_image = request.POST.get('image_choice')
-
+    # Appdefinition sicher holen
+    app_def = get_object_or_404(AppDefinition, name=app_selected)
+    '''
     try:
         app_def = AppDefinition.objects.get(name=app_selected)
     except AppDefinition.DoesNotExist:
         app_def = None  # oder andere Fehlerbehandlung
+    '''
+
+    # Super‑User‑Only‑Check
+    if app_def.super_user_only and not request.user.is_superuser:
+        raise PermissionDenied(
+            "Du hast keine Berechtigung, diese App zu starten."
+        )
 
     # Alle gültigen Image‑Strings der App erzeugen
     valid_images = {
@@ -979,3 +988,327 @@ def paas_log_cleanup(request, host_id):
         f'inline; filename="cleanup_data_corpses_{host.hostname}.log"'
     )
     return response
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_http_methods(["POST"])
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
+def data_export_select(request):
+    app_def_all =AppDefinition.objects.all()
+    context = {
+        "app_def_all": app_def_all,
+        "PLATFORM_NAME": PLATFORM_NAME,
+    }
+    return render(request, "paas/data_export_select.html", context)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_http_methods(["POST"])
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
+def data_export_app_def(request):
+    """
+    Accepts a POSTed list of AppDefinition‑IDs, pulls every
+    dependency, serialises it into JSON (without PKs) and stores
+    the JSON string in the session.
+    On success the user is shown a page with a download link.
+    """
+    # 1.1.1  Grab the list from POST
+    app_ids = request.POST.getlist('app_ids')
+
+    app_def_all = AppDefinition.objects.all()
+
+    # 1.1.2  Basic sanity checks
+    if not app_ids:
+        messages.error(request, "Bitte wählen Sie mindestens eine App aus.")
+        return render(request,
+                      "paas/data_export_select.html",
+                      {
+                          "PLATFORM_NAME": PLATFORM_NAME,
+                          "app_def_all": app_def_all,
+                        },
+                      )
+
+    # 1.1.3  Prefetch everything in a single query set
+    apps_qs = (
+        AppDefinition.objects
+        .filter(id__in=app_ids)
+        .prefetch_related(
+            Prefetch('image_tags', to_attr='prefetched_image_tags'),
+            Prefetch('env_vars',   to_attr='prefetched_env_vars'),
+            Prefetch('volumes',    to_attr='prefetched_volumes'),
+            Prefetch('config_patches', to_attr='prefetched_patches')
+        )
+    )
+
+    if not apps_qs.exists():
+        messages.error(request, "Keine gültigen App‑IDs gefunden.")
+        return render(request,
+                      "paas/data_export_select.html",
+                      {
+                          "PLATFORM_NAME": PLATFORM_NAME,
+                          "app_def_all": app_def_all,
+                      },
+                      )
+
+    # 1.1.4  Build the export dict
+    export_data = []
+
+    for app in apps_qs:
+        app_dict = {
+            "name":          app.name,
+            "display_name":  app.display_name,
+            "docker_image":  app.docker_image,
+            "command":       app.command,
+            "description":   app.description,
+            "default_duration": app.default_duration,
+            "app_port_intern_web": app.app_port_intern_web,
+            "app_port_intern_api": app.app_port_intern_api,
+            "app_port_intern_api_2": app.app_port_intern_api_2,
+            "hiddenservice_port_web": app.hiddenservice_port_web,
+            "hiddenservice_port_api": app.hiddenservice_port_api,
+            "hiddenservice_port_api_2": app.hiddenservice_port_api_2,
+            "use_deploy_user":   app.use_deploy_user,
+            "no_hidden_service": app.no_hidden_service,
+            "use_hostpid_namespace": app.use_hostpid_namespace,
+            "super_user_only":   app.super_user_only,
+            "tor_auth_type":     app.tor_auth_type,
+            "image_tags": [
+                {"tag": tag.tag} for tag in app.prefetched_image_tags
+            ],
+            "env_vars": [
+                {"key": env.key, "value": env.value,
+                 "optional": env.optional, "editable": env.editable}
+                for env in app.prefetched_env_vars
+            ],
+            "volumes": [
+                {"host_path": vol.host_path,
+                 "container_path": vol.container_path}
+                for vol in app.prefetched_volumes
+            ],
+            "config_patches": [
+                {"target_file": patch.target_file,
+                 "pattern": patch.pattern,
+                 "action": patch.action,
+                 "replacement": patch.replacement}
+                for patch in app.prefetched_patches
+            ],
+        }
+
+        export_data.append(app_dict)
+
+    # 1.1.5  Dump to JSON string (ensure_ascii=False to keep UTF‑8)
+    json_payload = json.dumps(export_data, ensure_ascii=False, indent=2)
+
+    # 1.1.6  Store payload in session – very short‑lived
+    request.session["app_export_payload"] = json_payload
+
+    # 1.1.7  Render the success page with a link
+    #        (the download view will read the session value)
+    filename = f"app_export_{timezone.now().strftime('%Y%m%d%H%M%S')}.json"
+    return render(
+        request,
+        "paas/data_export_success.html",
+        {"download_filename": filename, "PLATFORM_NAME": PLATFORM_NAME,},
+    )
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def download_app_export(request):
+    """
+    Serves the JSON payload that was stored in the session by the
+    export view.  The payload is removed from the session after
+    delivery – a one‑time download only.
+    """
+    payload = request.session.pop("app_export_payload", None)
+
+    if payload is None:
+        # No payload → probably a stale link or a manual request
+        raise Http404("No export payload available.")
+
+    # Send as a file attachment
+    response = HttpResponse(
+        payload,
+        content_type="application/json",
+        status=200,
+    )
+    # The filename that was rendered on the success page
+    filename = request.GET.get("filename", "app_export.json")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return response
+
+
+# ------------------------------------------------------------
+# A very small form that only contains a textarea for JSON input.
+# ------------------------------------------------------------
+class JsonImportForm(forms.Form):
+    json_data = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control import-textarea",
+                "rows": 20,
+                "cols": 80,
+            }
+        ),
+        label="App‑Definition JSON",
+        help_text=(
+            "JSON‑Array mit einer oder mehreren App‑Definitionen."
+        ),
+    )
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_http_methods(["GET", "POST"])
+def data_import_app_def(request):
+    """
+    Super‑user only: Import AppDefinitions from a JSON blob.
+
+    * GET  → show the input form
+    * POST → parse the JSON, validate it against the DB schema,
+             create / update the objects inside a single transaction
+    """
+    if request.method == "POST":
+        form = JsonImportForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Ungültiges Formular. Bitte überprüfen Sie die Eingabe.")
+            return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
+
+        json_text = form.cleaned_data["json_data"].strip()
+        if not json_text:
+            messages.error(request, "Der JSON‑Bereich darf nicht leer sein.")
+            return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
+
+        try:
+            app_definitions = json.loads(json_text)
+            if not isinstance(app_definitions, list):
+                raise ValueError("JSON muss ein Array sein.")
+        except (json.JSONDecodeError, ValueError) as exc:
+            messages.error(request, f"JSON‑Fehler: {exc}")
+            return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
+
+        # ------------------------------------------------------------
+        # All database changes must happen atomically – otherwise we risk a half‑import.
+        # ------------------------------------------------------------
+        try:
+            with transaction.atomic():
+                for entry in app_definitions:
+                    # -----------------------------------------------------------------
+                    # 1. AppDefinition – create or update by 'name'
+                    # -----------------------------------------------------------------
+                    name = entry.get("name")
+                    if not name:
+                        raise ValueError("Jede App muss einen 'name' haben.")
+
+                    app_obj, created = AppDefinition.objects.update_or_create(
+                        name=name,
+                        defaults={
+                            "display_name": entry.get("display_name", name),
+                            "docker_image": entry.get("docker_image", ""),
+                            "command": entry.get("command", ""),
+                            "description": entry.get("description", ""),
+                            "default_duration": entry.get("default_duration", 1),
+                            "app_port_intern_web": entry.get("app_port_intern_web", 80),
+                            "app_port_intern_api": entry.get("app_port_intern_api", 1),
+                            "app_port_intern_api_2": entry.get("app_port_intern_api_2", 1),
+                            "hiddenservice_port_web": entry.get("hiddenservice_port_web", 80),
+                            "hiddenservice_port_api": entry.get("hiddenservice_port_api", 1),
+                            "hiddenservice_port_api_2": entry.get("hiddenservice_port_api_2", 1),
+                            "use_deploy_user": entry.get("use_deploy_user", False),
+                            "no_hidden_service": entry.get("no_hidden_service", False),
+                            "use_hostpid_namespace": entry.get("use_hostpid_namespace", False),
+                            "super_user_only": entry.get("super_user_only", False),
+                            "tor_auth_type": entry.get("tor_auth_type", "none"),
+                        },
+                    )
+
+                    # -----------------------------------------------------------------
+                    # 2. Image tags – unique per AppDefinition
+                    # -----------------------------------------------------------------
+                    image_tags = entry.get("image_tags", [])
+                    for tag_entry in image_tags:
+                        tag = tag_entry.get("tag")
+                        if tag:
+                            AppImageTag.objects.get_or_create(
+                                app_definition=app_obj, tag=tag
+                            )
+
+                    # -----------------------------------------------------------------
+                    # 3. Environment variables – unique per AppDefinition & key
+                    # -----------------------------------------------------------------
+                    env_vars = entry.get("env_vars", [])
+                    for ev in env_vars:
+                        key = ev.get("key")
+                        if not key:
+                            raise ValueError("Jede env‑Var braucht einen 'key'.")
+                        AppEnvVarPerApp.objects.update_or_create(
+                            app=app_obj,
+                            key=key,
+                            defaults={
+                                "value": ev.get("value", ""),
+                                "optional": ev.get("optional", False),
+                                "editable": ev.get("editable", False),
+                            },
+                        )
+
+                    # -----------------------------------------------------------------
+                    # 4. Volumes – unique per AppDefinition + host_path + container_path
+                    # -----------------------------------------------------------------
+                    volumes = entry.get("volumes", [])
+                    for vol in volumes:
+                        host_path = vol.get("host_path")
+                        container_path = vol.get("container_path")
+                        if not host_path or not container_path:
+                            raise ValueError("Jedes Volume braucht 'host_path' und 'container_path'.")
+                        AppVolumePerApp.objects.update_or_create(
+                            app=app_obj,
+                            host_path=host_path,
+                            container_path=container_path,
+                            defaults={},
+                        )
+
+                    # -----------------------------------------------------------------
+                    # 5. Config patches – optional; we link them to the AppDefinition
+                    # -----------------------------------------------------------------
+                    patches = entry.get("config_patches", [])
+                    for patch in patches:
+                        target_file = patch.get("target_file")
+                        pattern = patch.get("pattern")
+                        action = patch.get("action", ConfigPatch.ACTION_COMMENT)
+                        replacement = patch.get("replacement")  # may be None
+
+                        if not target_file or not pattern:
+                            raise ValueError("Jede ConfigPatch braucht 'target_file' und 'pattern'.")
+
+                        # We keep the patch unique per app & target_file to avoid duplicates
+                        ConfigPatch.objects.update_or_create(
+                            app=app_obj,
+                            target_file=target_file,
+                            defaults={
+                                "volume": None,
+                                "pattern": pattern,
+                                "action": action,
+                                "replacement": replacement,
+                            },
+                        )
+
+                # If we get here, everything succeeded
+                messages.success(request, "Import erfolgreich abgeschlossen.")
+                return redirect(reverse("paas_data_import_app_def_success"))
+
+        except Exception as exc:
+            # Rollback is automatic because we are in atomic block
+            messages.error(request, f"Import fehlgeschlagen: {exc}")
+            return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
+
+    # ---------- GET -------------------------------------------------
+    form = JsonImportForm()
+    return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def data_import_success(request):
+    return render(request, "paas/data_import_success.html", {"PLATFORM_NAME": PLATFORM_NAME})

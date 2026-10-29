@@ -1,0 +1,46 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Import-Select{% endblock %}
+{% block stylesheet %}{% static 'paas/style_data_import.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Import-Select{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div class="import-container">
+
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="form-group">
+            <!--<label for="{{ form.json_data.id_for_label }}">{{ form.json_data.label }}</label>-->
+            {{ form.json_data }}
+            {% if form.json_data.help_text %}
+                <small class="form-text text-muted">{{ form.json_data.help_text|safe }}</small>
+            {% endif %}
+            {% for error in form.json_data.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Importieren</button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

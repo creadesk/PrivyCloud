@@ -1,0 +1,26 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Export-Success{% endblock %}
+{% block stylesheet %}{% static 'paas/style_data_export.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Export-Success{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+
+    <h1>Export erfolgreich!</h1>
+
+    <p>Ihr Download ist bereit. Klicken Sie auf den Link, um die Datei herunterzuladen.</p>
+
+    <a href="{% url 'paas_download_app_export' %}?filename={{ download_filename }}">
+        Herunterladen: {{ download_filename }}
+    </a>
+
+</div>
+{% endblock %}

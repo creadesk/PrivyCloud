@@ -31,6 +31,11 @@ urlpatterns = [
     path('paas/data-corpses/',paas.views.data_corpses, name="paas_data_corpses"),
     path('paas/data-corpses/mark-delete/', paas.views.mark_delete, name="paas_mark_delete"),
     path('log_cleanup/<int:host_id>/', paas.views.paas_log_cleanup, name='paas_log_cleanup'),
+    path('paas/data-export-select/',paas.views.data_export_select, name="paas_data_export_select"),
+    path('paas/data-export-app-def/',paas.views.data_export_app_def, name="paas_data_export_app_def"),
+    path("paas/export-download/", paas.views.download_app_export, name="paas_download_app_export"),
+    path('paas/data-import-app-def/',paas.views.data_import_app_def, name="paas_data_import_app_def"),
+    path('paas/data-import-success/', paas.views.data_import_success, name='paas_data_import_app_def_success'),
 ]
 
 #this is only for development purpose

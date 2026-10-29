@@ -1,0 +1,57 @@
+{% extends "../base.html" %}
+{% load static %}
+{% block title %}{{ PLATFORM_NAME }} - PaaS-Export-Select{% endblock %}
+{% block stylesheet %}{% static 'paas/style_data_export.css' %}{% endblock %}
+{% block headline %}{{ PLATFORM_NAME }} - PaaS-Export-Select{% endblock %}
+{% block app_buttons %}
+<form method="POST" action="{% url 'dashboard' %}">
+    {% csrf_token %}
+    <div class="pagination">
+        <button type="submit">Home</button>
+    </div>
+</form>
+{% endblock %}
+{% block content %}
+<div>
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>
+                {{ message }}
+            </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <!-- Hier alle App-Definitionen per Checkbox an und abwählbar, Submit per POST Form -->
+    <form method="POST" action="{% url 'paas_data_export_app_def' %}">
+        {% csrf_token %}
+        <h3>Apps auswählen:</h3>
+
+        <ul class="app-list">
+            {% for app in app_def_all %}
+               <li class="app-item app-checkbox">
+                    <input
+                        type="checkbox"
+                        id="app-{{ app.id }}"
+                        name="app_ids"
+                        value="{{ app.id }}"
+                    >
+                    <label for="app-{{ app.id }}">
+                        <span class="app-name">{{ app.display_name }}</span>
+                    </label>
+               </li>
+            {% empty %}
+                <li>Keine App‑Definitionen vorhanden.</li>
+            {% endfor %}
+        </ul>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                Exportieren
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

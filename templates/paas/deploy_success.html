@@ -60,6 +60,21 @@
           <dd>X</dd>
       {% endif %}
 
+      <!-- API-Adresse 2, wenn vorhanden -->
+      <dt>Adresse-API 2(Onion)</dt>
+      {% if provision.app.app_port_intern_api_2 != 1 and provision.app.hiddenservice_port_api_2 != 1 and provision.onion_address != "" %}
+          <dd>{{ provision.onion_address }}:{{ provision.app.hiddenservice_port_api_2 }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <dt>Adresse-API 2(Clearnet)</dt>
+      {% if provision.app.app_port_intern_api_2 != 1 and provision.host != "" %}
+          <dd>{{ provision.host }}:{{ provision.port3 }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
       <!-- Host Port 1 -->
       <dt>Host Port 1</dt>
       {% if provision.app.app_port_intern_web != 1 and provision.port %}
@@ -72,6 +87,14 @@
       <dt>Host Port 2</dt>
       {% if provision.app.app_port_intern_api != 1 and provision.port2 %}
         <dd>{{ provision.port2 }}</dd>
+      {% else %}
+          <dd>X</dd>
+      {% endif %}
+
+      <!-- Host Port 3 -->
+      <dt>Host Port 3</dt>
+      {% if provision.app.app_port_intern_api_2 != 1 and provision.port3 %}
+        <dd>{{ provision.port3 }}</dd>
       {% else %}
           <dd>X</dd>
       {% endif %}

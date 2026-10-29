@@ -44,8 +44,10 @@
                         {% endif %}
                         <th>Web</th>
                         <th>API</th>
+                        <th>API</th>
                         <th>Host Port1</th>
                         <th>Host Port2</th>
+                        <th>Host Port3</th>
                         <th>Startzeit(UTC)</th>
                         <th>Verfallszeit(UTC)</th>
                         <th>Status</th>
@@ -86,6 +88,19 @@
                         </td>
 
                         <td>
+                            {% if p.app.app_port_intern_api_2 != 1 %}
+                                {% if p.onion_address and p.app.hiddenservice_port_api_2 != 1 %}
+                                <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api_2 }}" target="_blank">Onion</a>
+                                {% endif %}
+                                {% if p.host and p.port3 %}
+                                <a href="http://{{ p.host }}:{{ p.port3 }}" target="_blank">Clearnet</a>
+                                {% endif %}
+                            {% else %}
+                                X
+                            {% endif %}
+                        </td>
+
+                        <td>
                             {% if p.app.app_port_intern_web != 1 and p.port %}
                                 {{ p.port }}
                             {% else %}
@@ -96,6 +111,14 @@
                         <td>
                             {% if p.app.app_port_intern_api != 1 and p.port2 %}
                                 {{ p.port2 }}
+                            {% else %}
+                                X
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if p.app.app_port_intern_api_2 != 1 and p.port3 %}
+                                {{ p.port3 }}
                             {% else %}
                                 X
                             {% endif %}
@@ -156,7 +179,7 @@
                     <!-- Detail‑panel under every provision row -->
                     <!-- Panel: Image-Info -->
                     <tr class="panel-row">
-                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}12{% else %}11{% endif %}">
                             <details class="app-image-panel">
                                 <summary class="panel-summary">
                                     <span class="panel-label">Image‑Info</span>
@@ -197,7 +220,7 @@
 
                     <!-- Panel: Logs -->
                     <tr class="panel-row">
-                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}11{% else %}10{% endif %}">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}12{% else %}11{% endif %}">
                             <details class="app-image-panel">
                                 <summary class="panel-summary">
                                     <span class="panel-label">Logs</span>

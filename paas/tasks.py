@@ -309,7 +309,7 @@ def _reserve_ports(ssh, max_attempts=10):
 
     :param ssh:  SSH‑Connection‑Object (oder beliebiger Kontext, den _get_free_port nutzt)
     :param max_attempts:  Optionaler Höchstwert für die Versuche (None = unbegrenzt)
-    :return:  Tuple (free_port_web, free_port_api)
+    :return:  Tuple (free_port_web, free_port_api, free_port_api_2)
     """
     # 1. Web‑Port holen – das ist ein einmaliger Vorgang
     free_port_web = _get_free_port(ssh)
@@ -326,7 +326,19 @@ def _reserve_ports(ssh, max_attempts=10):
             break  # Bedingung erfüllt – wir können weitermachen
         attempts += 1
 
-    return free_port_web, free_port_api
+    # 3. API‑Port 2 holen – bis er verschieden vom Web‑Port und API-Port 1 ist
+    attempts = 0
+    while True:
+        if max_attempts is not None and attempts >= max_attempts:
+            raise RuntimeError(
+                f"Kein freier Port für API 2 gefunden, nach {attempts} Versuchen."
+            )
+        free_port_api_2 = _get_free_port(ssh)
+        if free_port_api_2 != free_port_web and free_port_api_2 != free_port_api:
+            break  # Bedingung erfüllt – wir können weitermachen
+        attempts += 1
+
+    return free_port_web, free_port_api, free_port_api_2
 
 
 def _build_torrc(app_def: AppDefinition,
@@ -334,6 +346,7 @@ def _build_torrc(app_def: AppDefinition,
                 hidden_dir: str,
                 free_port_web: int,
                 free_port_api: int,
+                free_port_api_2: int,
                 tor_auth_type=None,) -> str:
     """
     Baut die Tor‑Konfigurations‑Datei (torrc) als String.
@@ -344,6 +357,7 @@ def _build_torrc(app_def: AppDefinition,
         hidden_dir     – Pfad zum Hidden‑Service‑Verzeichnis
         free_port_web  – Port, auf dem die Web‑App läuft (intern)
         free_port_api  – Port, auf dem die API läuft (intern)
+        free_port_api_2  – Port, auf dem die API 2 läuft (intern)
         tor_auth_type  - 'password' | 'cert' | None
     """
     # Basis‑Zeilen – immer vorhanden
@@ -357,6 +371,8 @@ def _build_torrc(app_def: AppDefinition,
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_web} 127.0.0.1:{free_port_web}")
     if app_def.app_port_intern_api != 1 and app_def.hiddenservice_port_api !=1:
         lines.append(f"HiddenServicePort {app_def.hiddenservice_port_api} 127.0.0.1:{free_port_api}")
+    if app_def.app_port_intern_api_2 != 1 and app_def.hiddenservice_port_api_2 !=1:
+        lines.append(f"HiddenServicePort {app_def.hiddenservice_port_api_2} 127.0.0.1:{free_port_api_2}")
 
     # Alle Zeilen zu einem String mit Zeilenumbrüchen zusammenfügen
     torrc = "\n".join(lines) + "\n"   # Letztes \n für POSIX‑kompatibel
@@ -791,9 +807,10 @@ def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None,
         with _ssh_client(host) as ssh:
             # Freien Port ermitteln
             try:
-                free_port_web, free_port_api = _reserve_ports(ssh)
+                free_port_web, free_port_api, free_port_api_2 = _reserve_ports(ssh)
                 print(f"Web‑Port:  {free_port_web}")
                 print(f"API‑Port:  {free_port_api}")
+                print(f"API‑Port 2:  {free_port_api_2}")
             except RuntimeError as e:
                 print(f"Fehler: {e}")
 
@@ -824,7 +841,7 @@ def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None,
                     # **kein** privater Key in ProvisionedApp speichern
 
                 torrc_path = f"{tor_data_dir}.torrc_{provision.container_name}"
-                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api, tor_auth_type=tor_auth_type,)
+                torrc_content = _build_torrc(app_def, socks_port, hidden_dir, free_port_web, free_port_api, free_port_api_2, tor_auth_type=tor_auth_type,)
                 print("=== erzeugte torrc ===")
                 print(torrc_content)
 
@@ -876,6 +893,8 @@ WantedBy=default.target
                 cmd_parts.append(f"-p {free_port_web}:{app_def.app_port_intern_web}")
             if app_def.app_port_intern_api != 1:
                 cmd_parts.append(f"-p {free_port_api}:{app_def.app_port_intern_api}")
+            if app_def.app_port_intern_api_2 != 1:
+                cmd_parts.append(f"-p {free_port_api_2}:{app_def.app_port_intern_api_2}")
             env_flag_parts = [
                 f"-e {k}={v.replace('<onion_address>', onion_addr) if '<onion_address>' in v else v}"
                 for k, v in final_env.items()
@@ -923,6 +942,7 @@ WantedBy=default.target
             provision.container_id = container_id
             provision.port = free_port_web
             provision.port2 = free_port_api
+            provision.port3 = free_port_api_2
             provision.status = "running"
             provision.log = f"Container {container_id} läuft auf Port {free_port_web}"
             provision.save(update_fields=["container_id", "port", "port2", "status", "log"])

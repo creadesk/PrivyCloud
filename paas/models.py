@@ -92,11 +92,14 @@ class AppDefinition(models.Model):
   default_duration = models.PositiveIntegerField(default=1)  # Stunden
   app_port_intern_web = models.PositiveIntegerField(default=80)  # Web-Port, den die App innerhalb des Dockercontainers anbietet
   app_port_intern_api = models.PositiveIntegerField(default=1)  # API-Port, den die App innerhalb des Dockercontainers anbietet
+  app_port_intern_api_2 = models.PositiveIntegerField(default=1)  # API-Port 2, den die App innerhalb des Dockercontainers anbietet
   hiddenservice_port_web = models.PositiveIntegerField(default=80)  # Web-Port für onion-service
   hiddenservice_port_api = models.PositiveIntegerField(default=1)  # API-Port für onion-service
+  hiddenservice_port_api_2 = models.PositiveIntegerField(default=1)  # API-Port 2 für onion-service
   use_deploy_user = models.BooleanField(default=False, help_text="Container mit User {uid}:{gid} starten")
   no_hidden_service = models.BooleanField(default=False, help_text="ohne Hidden-Service")
   use_hostpid_namespace = models.BooleanField(default=False, help_text="Container verwendet den PID-Namespace des Hosts")
+  super_user_only = models.BooleanField(default=False, help_text="Nur Super-User dürfen diese App starten")
 
   tor_auth_type = models.CharField(
       max_length=8,
@@ -278,6 +281,7 @@ class ProvisionedApp(models.Model):
   )
   port = models.PositiveIntegerField(blank=True, null=True)
   port2 = models.PositiveIntegerField(blank=True, null=True)
+  port3 = models.PositiveIntegerField(blank=True, null=True)
   # Status: pending, running, finished, error, deleted
   status = models.CharField(max_length=32, default='pending')
   log = models.TextField(blank=True, null=True)

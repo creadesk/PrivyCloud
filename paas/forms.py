@@ -15,7 +15,7 @@ DURATION_CHOICES = [
 
 class DeployForm(forms.Form):
   app = forms.ModelChoiceField(
-      queryset=AppDefinition.objects.all(),
+      queryset=AppDefinition.objects.filter(super_user_only=False),
       widget=forms.Select(attrs={'class': 'form-control'})
   )
   '''
@@ -31,6 +31,10 @@ class DeployForm(forms.Form):
   )
 
 class DeployFormAdmin(DeployForm):
+    app = forms.ModelChoiceField(
+        queryset=AppDefinition.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
     target_host = forms.ModelChoiceField(
         queryset=RemoteHost.objects.all(),
         widget=forms.Select(attrs={'class': 'form-control'}),

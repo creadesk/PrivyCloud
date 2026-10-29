@@ -43,6 +43,19 @@
         </form>
         <div class="description">Zeigt Datenleichen gelöschter Apps auf Zielservern.</div>
     </div>
+    <div class="panel">
+        <form method="POST" action="{% url 'paas_data_export_select' %}">
+            {% csrf_token %}
+            <button>Datenexport</button>
+        </form>
+        <div class="description">Export von App-Defintionen.</div>
+    </div>
+    <div class="panel">
+        <form method="GET" action="{% url 'paas_data_import_app_def' %}">
+            <button>Datenimport</button>
+        </form>
+        <div class="description">Import von App-Defintionen.</div>
+    </div>
     {% endif %}
 </div>
 {% endblock %}
