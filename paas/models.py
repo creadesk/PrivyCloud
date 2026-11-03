@@ -325,8 +325,8 @@ class ProvisionedApp(models.Model):
         Key‑Datei muss eine entsprechende SSH‑Konfiguration im Host
         (z.B. in ~/.ssh/config) eingerichtet werden.
       """
-      if not self.host:
-          print(f'_docker_client, Fehler-kein host {self.host}')
+      if not self.host_id:
+          print('_docker_client, Fehler-kein host')
           return None
 
       print(f'_docker_client, Host: {self.host}')
@@ -426,7 +426,10 @@ class ProvisionedApp(models.Model):
 
           self.started_at = timezone.now()
           self.status = 'running'
-          self.log += f"\nContainer {self.container_id} gestartet."
+          #self.log += f"\nContainer {self.container_id} gestartet."
+          self.log = (self.log or "") + (
+              f"\nContainer {self.container_id} gestartet."
+          )
           return True
 
       except docker.errors.NotFound:
@@ -483,7 +486,10 @@ class ProvisionedApp(models.Model):
           #container.wait(condition='exited')
 
           self.status = 'stopped'
-          self.log += f"\nContainer {self.container_id} gestoppt."
+          #self.log += f"\nContainer {self.container_id} gestoppt."
+          self.log = (self.log or "") + (
+              f"\nContainer {self.container_id} gestoppt."
+          )
           return True
 
       except docker.errors.NotFound:

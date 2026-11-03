@@ -1,7 +1,6 @@
 from django.contrib.auth import logout, login, authenticate
 from django.contrib.auth.models import User, AnonymousUser
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
 from django_otp.plugins.otp_totp.models import TOTPDevice
 import qrcode
 from io import BytesIO
@@ -12,8 +11,8 @@ import string
 from authent.forms import CaptchaForm
 from core.settings import PLATFORM_NAME, IP_RATELIMIT_PER_MINUTE
 from django_smart_ratelimit import rate_limit
-
 from paas.models import UserDeploymentLimit
+from django.db import transaction
 
 
 BANNED_PREFIXES  = ('delete_me_',)
@@ -51,50 +50,69 @@ def generateRandomString(length=20):
 
 @rate_limit(key='ip', rate=f'{IP_RATELIMIT_PER_MINUTE}/m', block=True)
 def verify_2fa(request):
-    # Image Name des QR Code aus der Session abrufen und Bild-Datei löschen
+    # Image Name des QR Codes aus der Session abrufen und Bild-Datei löschen
     img_name = request.session.get('img_name')
-    file_path = f'otp_qr/{img_name}'
-    path = default_storage.delete(file_path)
 
-    # Stelle sicher, dass der Benutzer ID aus der Sitzung abgerufen wird
-    user = None
+    if img_name:
+        file_path = f'otp_qr/{img_name}'
+        default_storage.delete(file_path)
+
+    # Temporäre Benutzer-ID aus der Session abrufen
     temp_user_id = request.session.get('temp_user_id')
 
-    if not temp_user_id and isinstance(request.user, AnonymousUser):
-        return redirect('login')  # Falls keine temporäre Benutzer-ID vorhanden ist und der Benutzer auch noch nicht eingeloggt ist, zurück zum Login
+    # Benutzer ermitteln
+    user = None
 
     if temp_user_id:
-        user = User.objects.get(id=temp_user_id)  # Hole den temporären nicht eingeloggten Benutzer
+        try:
+            user = User.objects.get(id=temp_user_id)
+        except User.DoesNotExist:
+            return redirect('login')
 
-    if not isinstance(request.user, AnonymousUser):
-        user = User.objects.get(id=request.user.id)  # Hole den eingeloggten Benutzer
+    elif not isinstance(request.user, AnonymousUser):
+        try:
+            user = User.objects.get(id=request.user.id)
+        except User.DoesNotExist:
+            return redirect('login')
 
-    device = user.totpdevice_set.first()  # Nimm das erste TOTP-Gerät des Benutzers
+    else:
+        return redirect('login')
+
+    # TOTP-Gerät ermitteln
+    device = user.totpdevice_set.first()
+
+    # Ohne TOTP-Gerät kann der Verifizierungsprozess nicht fortgesetzt werden
+    if device is None:
+        return redirect('login')
 
     if request.method == 'POST':
         otp_code = request.POST.get('otp_code')
 
-        if device.verify_token(otp_code):  # Überprüfe den OTP-Code
-            # OTP korrekt, 2FA erfolgreich bestätigt
+        if device.verify_token(otp_code):
+            # OTP korrekt: 2FA erfolgreich bestätigt
             device.confirmed = True
             device.save()
 
-            # Benutzer jetzt vollständig einloggen
+            # Temporären Benutzer vollständig einloggen
             if temp_user_id:
                 login(request, user)
-                del request.session['temp_user_id']  # Lösche temporäre Benutzer-ID aus der Sitzung
-            return redirect('dashboard')  # Weiterleitung zur Startseite oder Dashboard
+                del request.session['temp_user_id']
+
+            return redirect('dashboard')
 
         else:
             # Fehlerhafte OTP-Eingabe
             error_message = "Ungültiger OTP-Code."
-            return render(request, 'authent/verify_2fa.html',{
+
+            return render(request, 'authent/verify_2fa.html', {
                 "error_message": error_message,
                 "PLATFORM_NAME": PLATFORM_NAME,
-            })  # Seite zur Eingabe des OTP
-    return render(request, 'authent/verify_2fa.html',{
+            })
+
+    return render(request, 'authent/verify_2fa.html', {
         "PLATFORM_NAME": PLATFORM_NAME,
-    })  # Seite zur Eingabe des OTP
+    })
+
 
 
 @rate_limit(key='ip', rate=f'{IP_RATELIMIT_PER_MINUTE}/m', block=True)
@@ -190,9 +208,9 @@ def register_view(request):
         return redirect('dashboard')  # Weiterleitung zur Hauptseite, wenn bereits ein Benutzer angemeldet ist
 
     if request.method == 'POST':
-        username = request.POST.get("username")  # Verwende .get() für sicheres Abrufen
-        password = request.POST.get("password")
-        password_repeat = request.POST.get("password_repeat")
+        username = request.POST.get("username", "")
+        password = request.POST.get("password", "")
+        password_repeat = request.POST.get("password_repeat", "")
         error_message = None
 
         if username_is_banned(username):
@@ -216,8 +234,10 @@ def register_view(request):
             error_message = "Das Passwort muss mindestens eine Zahl enthalten."
         elif password != password_repeat:
             error_message = "Die Passwörter stimmen nicht überein."
-        if username in password:
-            error_message = "Der Benutzername darf nicht im Passwort enthalten sein."
+        if username.casefold() in password.casefold():
+            error_message = (
+                "Der Benutzername darf nicht im Passwort enthalten sein."
+            )
 
         if error_message:
             return render(request, 'authent/register.html', {
@@ -233,59 +253,86 @@ def register_view(request):
                 'PLATFORM_NAME': PLATFORM_NAME,
             })
 
-        # Benutzer erstellen
-        try:
-            user = User(username=username)
-            user.set_password(password)  # Wichtig: Passwort verschlüsseln
-            user.save()
 
-            # -> automatischer Limit‑Eintrag
-            UserDeploymentLimit.objects.create(user=user)
+        # Benutzer und zugehörige Daten atomar erstellen
+        saved_file_path = None
+
+        try:
+            with transaction.atomic():
+
+                # Benutzer erstellen
+                user = User(username=username)
+                user.set_password(password)
+                user.save()
+
+                # Automatischer Deployment-Limit-Eintrag
+                UserDeploymentLimit.objects.create(user=user)
+
+                # TOTP-Gerät erstellen
+                device = TOTPDevice.objects.create(user=user)
+
+                # QR-Code generieren
+                img = qrcode.make(device.config_url)
+                img_io = BytesIO()
+                img.save(img_io)
+                img_io.seek(0)
+
+                otp_config_url = device.config_url
+
+                # QR-Code-Datei speichern
+                rand_str = generateRandomString(20)
+                img_name = f'otp_qr_{rand_str}.png'
+
+                file_path = f'otp_qr/{img_name}'
+                img_file = ContentFile(img_io.read())
+
+                saved_file_path = default_storage.save(
+                    file_path,
+                    img_file
+                )
+
+                qr_code_url = default_storage.url(saved_file_path)
+
+            # Ab hier wurde die Datenbanktransaktion erfolgreich
+            # abgeschlossen.
 
             request.session['user_saved_in_this_session'] = 'YES'
-
-            # Optional: Benutzer einloggen
-            #login(request, user)
-
-            # Ohne Login, User-ID wird temporär vorgehalten
             request.session['temp_user_id'] = user.id
-
-            # Erstelle ein neues TOTP-Gerät für den Benutzer
-            device = TOTPDevice.objects.create(user=user)
-
-            # QR-Code aus dem URL für das TOTP-Gerät generieren
-            img = qrcode.make(device.config_url)  # QR-Code für den geheimen Schlüssel erstellen
-            img_io = BytesIO()
-            img.save(img_io)
-            img_io.seek(0)
-            otp_config_url = device.config_url
-
-            # Speichern des QR-Codes im richtigen Verzeichnis
-            #img_name = f'otp_qr_{user.username}.png'
-            rand_str = generateRandomString(20)
-            img_name = f'otp_qr_{rand_str}.png'
             request.session['img_name'] = img_name
 
-            # Speichern im MEDIA_ROOT-Verzeichnis (sicherer Ort für benutzerspezifische Dateien)
-            file_path = f'otp_qr/{img_name}'  # Verzeichnis "otp_qr" unter MEDIA_ROOT
-            img_file = ContentFile(img_io.read())
-            path = default_storage.save(file_path, img_file)
+            success_message = (
+                "Registrierung erfolgreich. 2FA muss noch eingerichtet werden."
+            )
 
-            # Erfolgsmeldung und Weiterleitung
-            success_message = "Registrierung erfolgreich. 2FA muss noch eingerichtet werden."
-            # Den Dateipfad zur Anzeige des QR-Codes zurückgeben
             return render(request, 'authent/enable_2fa.html', {
-                'qr_code_url': default_storage.url(path),
+                'qr_code_url': qr_code_url,
                 'success_message': success_message,
                 'otp_config_url': otp_config_url,
                 'PLATFORM_NAME': PLATFORM_NAME,
             })
+
         except Exception as e:
-            error_message = f"Fehler beim Erstellen des Benutzers: {e}"
+
+            # Datenbankänderungen wurden durch atomic()
+            # bereits zurückgerollt.
+
+            # Falls die QR-Code-Datei bereits geschrieben wurde,
+            # muss sie separat entfernt werden.
+            if saved_file_path:
+                try:
+                    default_storage.delete(saved_file_path)
+                except Exception:
+                    pass
+
+            error_message = (
+                f"Fehler beim Erstellen des Benutzers: {e}"
+            )
+
             return render(request, 'authent/register.html', {
                 'error_message': error_message,
                 'PLATFORM_NAME': PLATFORM_NAME,
             })
+
 
     return render(request, 'authent/register.html', {
         'PLATFORM_NAME': PLATFORM_NAME,

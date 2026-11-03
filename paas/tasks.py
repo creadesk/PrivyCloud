@@ -34,14 +34,15 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------
 # Lokaler SSH‑Client (für localhost)
 # ----------------------------------------------------
-
+'''
 class LocalSFTP:
     """Minimaler Ersatz für Paramiko SFTP – nutzt einfach Python‑I/O."""
     def open(self, path: str, mode: str):
         # Im lokalen Fall muss das Verzeichnis existieren
         os.makedirs(os.path.dirname(path), exist_ok=True)
         return open(path, mode)
-
+'''
+'''
 class LocalSSH:
     """Paramiko‑ähnlicher Client für die lokale Maschine"""
 
@@ -126,7 +127,7 @@ class LocalSSH:
 
     def __exit__(self, exc_type, exc, tb):
         return False
-
+'''
 
 # ----------------------------------------------------------------------
 # SSH‑Hilfsfunktionen
@@ -190,14 +191,20 @@ def _run_cmd(ssh, cmd: str):
     # ----------------- Detect local return (int, str, str) -----------------
     # Paramiko returns a tuple of ChannelFile objects → first element is NOT int
     if isinstance(result, tuple) and len(result) == 3:
-        # local:  (int, str, str)
+        # local: (int, str, str)
         if isinstance(result[0], int):
             exit_code, out, err = result
-            # Ensure strings (no trailing newlines)
+
+            # Ensure strings and remove surrounding whitespace
             if not isinstance(out, str):
-                out = out.decode().strip()
+                out = out.decode()
+
             if not isinstance(err, str):
-                err = err.decode().strip()
+                err = err.decode()
+
+            out = out.strip()
+            err = err.strip()
+
             return exit_code, out, err
 
     # ----------------- Paramiko case ------------------------------------
@@ -208,7 +215,7 @@ def _run_cmd(ssh, cmd: str):
     return exit_code, out, err
 
 
-def _get_user_id_uid(ssh, username: str = "deploy") -> tuple[str, str]:
+def _get_user_id_uid(ssh, username: str = "deploy") -> str:
     """
     Gibt die UID des angegebenen Users zurück.
     """
@@ -221,7 +228,7 @@ def _get_user_id_uid(ssh, username: str = "deploy") -> tuple[str, str]:
     return uid
 
 
-def _get_user_id_gid(ssh, username: str = "deploy") -> tuple[str, str]:
+def _get_user_id_gid(ssh, username: str = "deploy") -> str:
     """
     Gibt die GID des angegebenen Users zurück.
     """
@@ -269,37 +276,78 @@ def _is_port_in_use(ssh, port: int):
 
 def _write_systemd_unit(ssh, unit_name, unit_content):
     """
-    Schreibt die unit_datei in ~/.config/systemd/user/ und lädt sie neu.
-    Funktioniert sowohl für einen echten Paramiko‑SSHClient (remote)
-    als auch für die LocalSSH‑Klasse (lokal).
+    Schreibt die systemd-Unit-Datei in
+    ~/.config/systemd/user/ und aktiviert/startet sie.
+
+    Funktioniert sowohl mit Paramiko SSHClient als auch LocalSSH.
+    Bei Fehlern wird eine RuntimeError-Exception ausgelöst.
     """
     # ---------------------------------------------------------
-    # 2.1  Determine username & target directory
+    # 1. Benutzer und Zielverzeichnis ermitteln
     # ---------------------------------------------------------
-
-    # Remote / Paramiko client
     user = ssh.get_transport().get_username()
+
     unit_dir = f"/home/{user}/.config/systemd/user/"
-    # Remote: ensure dir via SSH (no local os.makedirs)
-    _run_cmd(ssh, f"mkdir -p {unit_dir}")
-    unit_path = f"{unit_dir}{unit_name}"          # remote path
+    unit_path = f"{unit_dir}{unit_name}"
+
+    # Verzeichnis anlegen
+    _run_cmd_checked(
+        ssh,
+        f"mkdir -p {unit_dir}"
+    )
 
     # ---------------------------------------------------------
-    # 2.2  Write the unit file
+    # 2. Unit-Datei schreiben
     # ---------------------------------------------------------
     with ssh.open_sftp() as sftp:
         with sftp.open(str(unit_path), "w") as f:
             f.write(unit_content)
 
     # ---------------------------------------------------------
-    # 3. Reload systemd, enable & start the unit
+    # 3. systemd aktualisieren
     # ---------------------------------------------------------
+    _run_cmd_checked(
+        ssh,
+        "systemctl --user daemon-reload"
+    )
 
-    # Remote commands – executed via the SSH client
-    _run_cmd(ssh, f"systemctl --user daemon-reload")
-    _run_cmd(ssh, f"systemctl --user enable {unit_name}")
-    _run_cmd(ssh, f"systemctl --user start {unit_name}")
+    # ---------------------------------------------------------
+    # 4. Service aktivieren
+    # ---------------------------------------------------------
+    _run_cmd_checked(
+        ssh,
+        f"systemctl --user enable {unit_name}"
+    )
 
+    # ---------------------------------------------------------
+    # 5. Service starten
+    # ---------------------------------------------------------
+    _run_cmd_checked(
+        ssh,
+        f"systemctl --user start {unit_name}"
+    )
+
+
+
+def _run_cmd_checked(ssh, cmd: str):
+    """
+    Führt einen SSH-Befehl aus und wirft bei einem Fehler
+    (Exit-Code != 0) eine RuntimeError-Exception.
+
+    Returns:
+        (exit_code, stdout, stderr)
+    """
+    exit_code, stdout, stderr = _run_cmd(ssh, cmd)
+
+    if exit_code != 0:
+        raise RuntimeError(
+            f"SSH-Befehl fehlgeschlagen "
+            f"(Exit-Code {exit_code}): {cmd}\n"
+            f"STDOUT: {stdout}\n"
+            f"STDERR: {stderr}"
+        )
+
+    return exit_code, stdout, stderr
 
 
 def _reserve_ports(ssh, max_attempts=10):
@@ -382,83 +430,141 @@ def _build_torrc(app_def: AppDefinition,
 # ----------------------------------------------------------------------
 # Gemeinsame Lösch‑Logik
 # ----------------------------------------------------------------------
-def _cleanup_provision(provision: ProvisionedApp):
-    """Stoppt Container, löscht Tor‑Hidden‑Service – bei Problemen das Tor‑Verzeichnis umbenennen."""
+def _cleanup_provision(provision: ProvisionedApp) -> bool:
+    """
+    Entfernt Container und Tor Hidden Service.
+
+    Rückgabe:
+        True: Bereinigung erfolgreich.
+        False: Kritischer Fehler bei der Bereinigung.
+    """
+
     host = provision.host
+
+    # Ursprüngliche Werte sichern
+    container_id = provision.container_id
+    onion_address = provision.onion_address
+
     with _ssh_client(host) as ssh:
+
         # 1. Container entfernen
-        if provision.container_id:
-            print(f"docker rm -f {provision.container_id}")
-            _run_cmd(ssh, f"docker rm -f {provision.container_id}")
-            provision.log += f"\nContainer {provision.container_id} removed."
-            provision.container_id = None
-
-        # 1.1 Unbenutzte Docker‑Volumes entfernen
-        _run_cmd(ssh, "docker volume prune -f")
-        provision.log += "\nUnused Docker volumes pruned."
-
-        # 2. Tor‑Hidden‑Service entfernen
-        if provision.container_name:
-            tor_data_dir = f"/home/{host.ssh_user}/{provision.container_name}"
-            hidden = f"{tor_data_dir}.tor_hidden_{provision.container_name}"
-            provision.log += f"\nTor Hidden‑Service {hidden} removed."
-            provision.onion_address = None
-
-            # systemd‑Dienst entfernen
-            _run_cmd(
+        if container_id:
+            exit_code, out, err = _run_cmd(
                 ssh,
-                f"systemctl --user stop tor-hidden-service@{provision.container_name}.service",
+                f"docker rm -f {container_id}",
             )
-            _run_cmd(
-                ssh,
-                f"systemctl --user disable tor-hidden-service@{provision.container_name}.service",
-            )
-            _run_cmd(
-                ssh,
-                f"rm ~/.config/systemd/user/tor-hidden-service@{provision.container_name}.service",
-            )
-
-            # 2.1 Tor‑Datenverzeichnis löschen – mit Fallback auf Umbenennung
-            exit_code, out, err = _run_cmd(ssh, f"rm -rf {tor_data_dir}")  # keine || true
-            print(f"[DEBUG] rm -rf {tor_data_dir} -> exit {exit_code}, out: '{out}', err: '{err}'")
 
             if exit_code != 0:
-                # Umbenennen – Präfix "delete_me_"
+                provision.status = "error"
+                provision.log += (
+                    f"\n✗ Container konnte nicht entfernt werden."
+                    f"\nContainer: {container_id}"
+                    f"\nFehler: {err}"
+                )
+                provision.save()
+                return False
+
+            provision.log += (
+                f"\nContainer {container_id} removed."
+            )
+
+        # 1.1 Unbenutzte Docker-Volumes entfernen
+        _run_cmd(ssh, "docker volume prune -f")
+
+        provision.log += "\nUnused Docker volumes pruned."
+
+        # 2. Tor Hidden Service entfernen
+        if provision.container_name:
+
+            tor_data_dir = (
+                f"/home/{host.ssh_user}/{provision.container_name}"
+            )
+
+            provision.log += (
+                f"\nTor Hidden-Service {tor_data_dir} removed."
+            )
+
+            service = (
+                f"tor-hidden-service@{provision.container_name}.service"
+            )
+
+            _run_cmd(
+                ssh,
+                f"systemctl --user stop {service}",
+            )
+
+            _run_cmd(
+                ssh,
+                f"systemctl --user disable {service}",
+            )
+
+            _run_cmd(
+                ssh,
+                f"rm ~/.config/systemd/user/{service}",
+            )
+
+            # 2.1 Tor-Verzeichnis löschen
+            exit_code, out, err = _run_cmd(
+                ssh,
+                f"rm -rf {tor_data_dir}",
+            )
+
+            if exit_code != 0:
+
                 parent_dir = os.path.dirname(tor_data_dir)
                 base_name = os.path.basename(tor_data_dir)
-                new_name = f"delete_me_{base_name}"
-                new_path = os.path.join(parent_dir, new_name)
 
-                # Escape for shell
-                cmd_mv = f"mv {shlex.quote(tor_data_dir)} {shlex.quote(new_path)}"
-                mv_exit, mv_out, mv_err = _run_cmd(ssh, cmd_mv)
-                print(f"[DEBUG] mv {tor_data_dir} -> {new_path} -> exit {mv_exit}, out: '{mv_out}', err: '{mv_err}'")
+                new_path = os.path.join(
+                    parent_dir,
+                    f"delete_me_{base_name}",
+                )
 
-                if mv_exit == 0:
+                cmd_mv = (
+                    f"mv {shlex.quote(tor_data_dir)} "
+                    f"{shlex.quote(new_path)}"
+                )
+
+                mv_exit, mv_out, mv_err = _run_cmd(
+                    ssh,
+                    cmd_mv,
+                )
+
+                if mv_exit != 0:
+
+                    provision.status = "error"
                     provision.log += (
-                        f"\n✗ Löschen fehlgeschlagen – "
-                        f"{tor_data_dir} wurde zu {new_path} umbenannt."
+                        f"\n✗ KRITISCHER FEHLER: "
+                        f"Tor-Verzeichnis konnte weder gelöscht "
+                        f"noch umbenannt werden."
+                        f"\nVerzeichnis: {tor_data_dir}"
+                        f"\nrm-Fehler: {err}"
+                        f"\nmv-Fehler: {mv_err}"
                     )
-                else:
-                    provision.log += (
-                        f"\n✗ Fehler beim Umbenennen von {tor_data_dir}. "
-                        f"Bitte prüfen Sie die Berechtigungen."
-                    )
+
+                    provision.save()
+                    return False
+
+                provision.log += (
+                    f"\nTor-Verzeichnis konnte nicht gelöscht werden."
+                    f"\nUmbenannt zu: {new_path}"
+                )
+
             else:
-                provision.log += "\nTor‑Datenverzeichnis gelöscht."
+                provision.log += (
+                    "\nTor-Datenverzeichnis gelöscht."
+                )
 
-        # 3. DB‑Eintrag löschen
+        # 3. Erst jetzt lokale Werte aktualisieren
+        provision.container_id = None
+        provision.onion_address = None
+
+        # 4. DB-Eintrag löschen
         provision.delete()
 
-        # alternativ: 3.1 DB-Eintrag auf Status "deleted" setzen
-        #provision.status = "deleted"
-        #provision.last_modified = timezone.now()
-        #provision.save(update_fields=[
-        #    "container_id", "onion_address", "status",
-        #    "log", "last_modified"
-        #])
+        return True
 
 
+'''
 def append_line_via_sftp(
     ssh,
     file_path: str,
@@ -563,99 +669,217 @@ def append_line_via_sftp(
 
     # Der Code sollte hier nie ankommen – aber type‑checkers brauchen es.
     return False
+'''
 
 # ----------------------------------------------------------------------
 # Anpassung Config eines Containers
 # ----------------------------------------------------------------------
-def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost, provision: ProvisionedApp, onion_addr):
+def _apply_patches(ssh, app_def: AppDefinition, host: RemoteHost,
+                   provision: ProvisionedApp, onion_addr):
     """
-    Führt alle Config‑Patch‑Anweisungen aus, die für die App definiert sind.
-    """
-    # 1. Alle Patches holen
-    patches = list(app_def.config_patches.all())
+    Führt alle Config-Patch-Anweisungen aus, die für die App definiert sind.
 
-    # 2. Für jedes Patch
-    for patch in patches:
-        # Pfad relativ zum Deploy‑User (z.B. /home/deploy/<user-containername>simplex/smp/config/smp-server.ini)
-        file_path = os.path.join(
-            f"/home/{host.ssh_user}/{provision.container_name}",
-            patch.target_file.lstrip('/')  # falls der Pfad mit / beginnt
+    Unterstützte Aktionen:
+        COMMENT: Passende Zeilen auskommentieren.
+        REPLACE: Passende Zeilen ersetzen.
+        DELETE:  Passende Zeilen löschen.
+        ADD:     Eine neue Zeile am Dateiende anhängen und Container neu starten.
+
+    Alle Shell-Argumente werden sicher gequotet.
+    """
+
+    def quote(value):
+        return shlex.quote(str(value))
+
+    def escape_sed_pattern(pattern):
+        """
+        Escaped den Sed-Delimiter '/', ohne die Regex unnötig zu verändern.
+        """
+        return pattern.replace("/", r"\/")
+
+    def escape_sed_replacement(replacement):
+        """
+        Escaped Sonderzeichen im Sed-Replacement.
+
+        &  = gesamter gefundener Treffer
+        \\ = Escape-Zeichen
+        /  = Sed-Delimiter
+        """
+        return (
+            replacement
+            .replace("\\", r"\\")
+            .replace("&", r"\&")
+            .replace("/", r"\/")
         )
 
-        # ------------------------------------------------------------------
-        # Warten, bis die Datei auf dem Remote‑Host existiert
-        # ------------------------------------------------------------------
-        if not _file_exists(ssh, file_path, timeout=60, interval=6.0):
+    # 1. Patches in definierter Reihenfolge laden
+    patches = list(
+        app_def.config_patches.order_by("pk")
+    )
+
+    # 2. Remote-Dateipfad aufbauen
+    #base_path = f"/home/{host.ssh_user}/{provision.container_name}"
+
+    for patch in patches:
+
+        # 3. Aktion vor Remote-Operationen validieren
+        if patch.action not in (
+            ConfigPatch.ACTION_COMMENT,
+            ConfigPatch.ACTION_REPLACE,
+            ConfigPatch.ACTION_DELETE,
+            ConfigPatch.ACTION_ADD,
+        ):
+            raise ValueError(
+                f"Unbekannte Patch-Aktion: {patch.action}"
+            )
+
+        if (
+            patch.action == ConfigPatch.ACTION_ADD
+            and not patch.replacement
+        ):
+            raise ValueError(
+                f"Patch ADD benötigt ein replacement-Feld "
+                f"(Patch ID {patch.id})."
+            )
+
+        # 4. Dateipfad sicher zusammensetzen
+        base_path = os.path.normpath(
+            f"/home/{host.ssh_user}/{provision.container_name}"
+        )
+        file_path = os.path.normpath(
+            os.path.join(
+                base_path,
+                patch.target_file.lstrip("/")
+            )
+        )
+
+        # Verhindern, dass der Patch das Basisverzeichnis verlässt
+        if os.path.commonpath([base_path, file_path]) != base_path:
+            raise ValueError(
+                f"Ungültiger Patch-Dateipfad: {patch.target_file}"
+            )
+
+        quoted_path = quote(file_path)
+
+        # 5. Warten, bis die Datei existiert
+        if not _file_exists(
+            ssh,
+            file_path,
+            timeout=60,
+            interval=6.0,
+        ):
             raise FileNotFoundError(
-                f"Target file {file_path} not found on remote host after waiting."
+                f"Target file {file_path} not found on remote host "
+                f"after waiting."
             )
 
-        # 3. Aktion ausführen
+        # 6. COMMENT
         if patch.action == ConfigPatch.ACTION_COMMENT:
-            # Zeilen auskommentieren:  sed -i 's/^\(https\|cert\|key\):/#\1:/'
-            # Wir benutzen `grep -nE` um die Zeilennummern zu holen und `sed -i` zum Einfügen des #.
+
+            pattern = escape_sed_pattern(patch.pattern)
+
+            sed_expression = f"s/{pattern}/#&/"
+
             cmd = (
-                f"sed -i \"s/{patch.pattern}/#&/\" {file_path}"
+                f"sed -E -i {quote(sed_expression)} {quoted_path}"
             )
-            #Bsp: sed -i 's/^\(https\|cert\|key\):/#&/' /home/deploy/testuser16-simplex-smp-1763212099/simplex/smp/config/smp-server.ini
+
             print(f"[PATCH COMMENT] {cmd}")
-            exit_code, out, err = _run_cmd(ssh, cmd)
-            if exit_code:
-                raise RuntimeError(f"Patch comment failed: {err}")
 
+            exit_code, out, err = _run_cmd(ssh, cmd)
+
+            if exit_code:
+                raise RuntimeError(
+                    f"Patch comment failed: {err}"
+                )
+
+        # 7. REPLACE
         elif patch.action == ConfigPatch.ACTION_REPLACE:
-            # z.B.  replace  ^https:.*  WITH https://example.com
-            # Wir nutzen sed -i 's/^https:.*/https://example.com/'
-            # Um den Platzhalter <onion_address> etc. zu ersetzen, können wir
-            # vorher `envsubst` benutzen oder `sed` selbst.
-            replacement = patch.replacement or ''
-            # Escape slashes in replacement
-            replacement_escaped = replacement.replace('/', r'\/')
+
+            pattern = escape_sed_pattern(patch.pattern)
+
+            replacement = patch.replacement or ""
+
+            replacement_escaped = escape_sed_replacement(
+                replacement
+            )
+
+            sed_expression = (
+                f"s/{pattern}/{replacement_escaped}/"
+            )
+
             cmd = (
-                f"sed -i 's/{patch.pattern}/{replacement_escaped}/' {file_path}"
+                f"sed -E -i {quote(sed_expression)} {quoted_path}"
             )
+
             print(f"[PATCH REPLACE] {cmd}")
-            exit_code, out, err = _run_cmd(ssh, cmd)
-            if exit_code:
-                raise RuntimeError(f"Patch replace failed: {err}")
 
+            exit_code, out, err = _run_cmd(ssh, cmd)
+
+            if exit_code:
+                raise RuntimeError(
+                    f"Patch replace failed: {err}"
+                )
+
+        # 8. DELETE
         elif patch.action == ConfigPatch.ACTION_DELETE:
-            # delete lines that match the pattern
-            cmd = f'sed -i "/^{patch.pattern}/d" {file_path}'
-            print(f"[PATCH DELETE] {cmd}")
-            exit_code, out, err = _run_cmd(ssh, cmd)
-            if exit_code:
-                raise RuntimeError(f"Patch delete failed: {err}")
 
-        elif patch.action == ConfigPatch.ACTION_ADD:
-            # Zeile hinzufügen:  sed -i '/pattern/a replacement'
-            # (add nach dem ersten Treffer von pattern)
-            if not patch.replacement:
-                raise ValueError(f"Patch ADD benötigt ein replacement‑Feld (Patch ID {patch.id}).")
-            replacement_substituted = patch.replacement.replace(
-                "<onion_address>", onion_addr
+            pattern = escape_sed_pattern(patch.pattern)
+
+            sed_expression = f"/{pattern}/d"
+
+            cmd = (
+                f"sed -E -i {quote(sed_expression)} {quoted_path}"
             )
 
-            print("Warte 60 Sekunden …")
-            time.sleep(60)  #wartezeit erforderlich, um überschreiben durch container anwendung zu verhindern
+            print(f"[PATCH DELETE] {cmd}")
 
-            #append_line_via_sftp(ssh, file_path, replacement_substituted) #sftp alternative
+            exit_code, out, err = _run_cmd(ssh, cmd)
 
-            cmd = f'printf "%s\\n" "{replacement_substituted}" >> {file_path}'  #ssh alternative
+            if exit_code:
+                raise RuntimeError(
+                    f"Patch delete failed: {err}"
+                )
+
+        # 9. ADD
+        elif patch.action == ConfigPatch.ACTION_ADD:
+
+            replacement = patch.replacement.replace(
+                "<onion_address>",
+                str(onion_addr or "")
+            )
+
+            # printf '%s\n' verhindert, dass Prozentzeichen
+            # im Replacement als Formatierungsanweisungen
+            # interpretiert werden.
+            cmd = (
+                f"printf '%s\\n' {quote(replacement)} "
+                f">> {quoted_path}"
+            )
+
             print(f"[PATCH ADD] {cmd}")
-            exit_code, out, err = _run_cmd(ssh, cmd)
-            if exit_code:
-                raise RuntimeError(f"Patch add failed: {err}")
 
-            # Container neu starten
-            cmd = f'docker restart {provision.container_name}'
+            exit_code, out, err = _run_cmd(ssh, cmd)
+
+            if exit_code:
+                raise RuntimeError(
+                    f"Patch add failed: {err}"
+                )
+
+            # Container nur nach erfolgreichem Anhängen neu starten
+            cmd = (
+                f"docker restart {quote(provision.container_name)}"
+            )
+
             print(f"[Container neu starten:] {cmd}")
-            exit_code, out, err = _run_cmd(ssh, cmd)
-            if exit_code:
-                raise RuntimeError(f"Patch add failed: {err}")
 
-        else:
-            raise ValueError(f"Unbekannte Patch‑Aktion: {patch.action}")
+            exit_code, out, err = _run_cmd(ssh, cmd)
+
+            if exit_code:
+                raise RuntimeError(
+                    f"Patch add failed: {err}"
+                )
+
 
 
 # ----------------------------------------------------------------------
@@ -678,8 +902,9 @@ def _file_exists(ssh, path: str, timeout: int = 60, interval: float = 1.0) -> bo
 
 
 # ----------------------------------------------------------------------
-#  Base32 encoder for a raw 32‑byte x25519 key
+#  Base32 encoder for a raw 32‑byte x25519 key (obsolet)
 # ----------------------------------------------------------------------
+'''
 def _base32_x25519_key(key_hex: str) -> str:
     """
     Convert a hex string (64 chars → 32 bytes) into the 56‑char base32
@@ -689,10 +914,12 @@ def _base32_x25519_key(key_hex: str) -> str:
     if len(raw) != 32:
         raise ValueError("Public key must be 32 bytes (64 hex chars)")
     return base64.b32encode(raw).decode("ascii").rstrip("=")
+'''
 
 # ----------------------------------------------------------------------
-#  Write a client‑auth file
+#  Write a client‑auth file (obsolet)
 # ----------------------------------------------------------------------
+'''
 def _write_client_auth_file(
     ssh, hidden_dir: str, public_key_hex: str, auth_file_name: Optional[str] = None
 ) -> str:
@@ -727,7 +954,7 @@ def _write_client_auth_file(
             fp.write(content)
 
     return file_path
-
+'''
 
 def _gen_x25519_keypair() -> tuple[bytes, bytes]:
     """
@@ -811,8 +1038,8 @@ def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None,
                 print(f"Web‑Port:  {free_port_web}")
                 print(f"API‑Port:  {free_port_api}")
                 print(f"API‑Port 2:  {free_port_api_2}")
-            except RuntimeError as e:
-                print(f"Fehler: {e}")
+            except RuntimeError:
+                raise
 
             # Container‑Name setzen, falls noch nicht vorhanden
             if not provision.container_name:
@@ -822,9 +1049,12 @@ def deploy_app_task(self, provision_id: int, selected_image: str, env_vars=None,
             # Tor‑Hidden‑Service
             tor_data_dir = f"/home/{host.ssh_user}/{provision.container_name}/"
             hidden_dir = f"{tor_data_dir}.tor_hidden_{provision.container_name}"
-            _run_cmd(ssh, f"mkdir -p {hidden_dir} && chmod 700 {hidden_dir}")
+
             onion_addr = ""
+
             if not app_def.no_hidden_service:
+
+                _run_cmd(ssh, f"mkdir -p {hidden_dir} && chmod 700 {hidden_dir}")
 
                 DEFAULT_SOCKS_PORT = 9050
                 socks_port = DEFAULT_SOCKS_PORT if not _is_port_in_use(ssh, DEFAULT_SOCKS_PORT) else _get_free_port(ssh)
@@ -873,7 +1103,7 @@ WantedBy=default.target
 
                 _, onion_addr, _ = _run_cmd(ssh, f"cat {hidden_dir}/hostname")
                 if not onion_addr:
-                    raise RuntimeError("Keine Onion‑Adresse gefunden")
+                    raise RuntimeError("Keine Onion-Adresse gefunden")
 
             # Docker‑Run
 
@@ -926,17 +1156,17 @@ WantedBy=default.target
                 cmd_parts.append(cmd)
 
             docker_cmd = " ".join(cmd_parts)
-            print(f"[deploy_app_task] Docker‑Cmd: {docker_cmd}")  # Debug‑Ausgabe
+            print(f"[deploy_app_task] Docker-Cmd: {docker_cmd}")  # Debug‑Ausgabe
 
             exit_code, _, err = _run_cmd(ssh, docker_cmd)
             if exit_code:
-                raise RuntimeError(f"Docker‑Run fehlgeschlagen: {err}")
+                raise RuntimeError(f"Docker-Run fehlgeschlagen: {err}")
 
             # Container‑ID abfragen
             ps_cmd = f"docker ps -q -f name={provision.container_name}"
             _, container_id, _ = _run_cmd(ssh, ps_cmd)
             if not container_id:
-                raise RuntimeError("Kein Container‑ID zurückgegeben")
+                raise RuntimeError("Kein Container-ID zurückgegeben")
 
             # Basis‑Daten sofort persistieren
             provision.container_id = container_id
@@ -945,9 +1175,21 @@ WantedBy=default.target
             provision.port3 = free_port_api_2
             provision.status = "running"
             provision.log = f"Container {container_id} läuft auf Port {free_port_web}"
-            provision.save(update_fields=["container_id", "port", "port2", "status", "log"])
+            provision.save(
+                update_fields=[
+                    "container_id",
+                    "port",
+                    "port2",
+                    "port3",
+                    "status",
+                    "log",
+                ]
+            )
             provision.onion_address = onion_addr
-            provision.log += f"\nOnion‑Service erstellt: http://{onion_addr}"
+            if onion_addr:
+                provision.log += f"\nOnion-Service erstellt: http://{onion_addr}"
+            else:
+                provision.log += "\nKein Onion-Service eingerichtet."
             provision.save(update_fields=["onion_address", "log"])
             provision.docker_run_cmd = docker_cmd
             provision.save(update_fields=["docker_run_cmd"])
@@ -960,7 +1202,7 @@ WantedBy=default.target
             except Exception as patch_err:
                 # Patch‑Fehler: Status ändern, Log erweitern, aber nicht zurücksetzen
                 provision.status = "error"
-                provision.log += f"\nPatch‑Fehler: {patch_err}"
+                provision.log += f"\nPatch-Fehler: {patch_err}"
                 provision.save(update_fields=["status", "log"])
                 raise  # Celery markiert Task als fehlgeschlagen
 
@@ -980,19 +1222,28 @@ WantedBy=default.target
 
 @shared_task
 def delete_container_by_id(provision_id: int, *_, **__):
-    """Idempotenter Löscht‑Task – wird von Sweep oder Countdown aufgerufen."""
+
     try:
-        #provision = ProvisionedApp.objects.select_related("host").get(pk=provision_id)
         provision = ProvisionedApp.objects.get(pk=provision_id)
+
     except ProvisionedApp.DoesNotExist:
-        logger.info(f"[delete] ProvisionedApp {provision_id} nicht mehr vorhanden.")
+        logger.info(
+            f"[delete] ProvisionedApp {provision_id} "
+            f"nicht mehr vorhanden."
+        )
         return
 
     if provision.status in ("deleted", "deleting"):
         logger.info(f"[delete] {provision} bereits gelöscht.")
         return
 
-    _cleanup_provision(provision)
+    success = _cleanup_provision(provision)
+
+    if not success:
+        logger.error(
+            f"[delete] Provision {provision_id} "
+            f"konnte nicht vollständig bereinigt werden."
+        )
 
 
 
@@ -1136,62 +1387,192 @@ def update_remote_loads(self):
     logger.info(
         f"CPU‑Load Update beendet – {successes} erfolgreich, {failures} fehlgeschlagen."
     )
+    return {
+        "successes": successes,
+        "failures": failures,
+    }
 
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=60)
 def update_app_task(self, provision_id: int, new_image: str):
     """
-    Aktualisiert einen laufenden Docker‑Container mit einem neuen Image.
-    Die Grundlogik bleibt unverändert, jedoch:
+    Aktualisiert einen laufenden Docker-Container mit einem neuen Image.
 
-      * Nur **eine** SSH‑Session wird genutzt – stop, remove und start in einem Schritt.
-      * Die neuen Befehle werden mithilfe von `re.sub()` erzeugt.
-      * Nach erfolgreichem Start wird das Modell‑Objekt aktualisiert.
-      * Bei Fehlern wird ein Retry ausgeführt – das ist die empfohlene Celery‑Praxis.
+    - Eine SSH-Session für alle Docker-Kommandos.
+    - Prüft, ob der alte Container noch existiert.
+    - Stoppt und entfernt den alten Container nur, wenn er existiert.
+    - Startet den neuen Container.
+    - Aktualisiert anschließend das Datenbankobjekt.
+    - Führt bei Fehlern einen Celery-Retry aus.
     """
+
     logger.info("Update einer App gestartet")
 
     try:
-        # 1. Datenbank‑Lesezugriff (nur einmal)
-        provision = ProvisionedApp.objects.select_related("app", "host").get(pk=provision_id)
+        # 1. Provision laden
+        provision = ProvisionedApp.objects.select_related(
+            "app", "host"
+        ).get(pk=provision_id)
+
         host = provision.host
-        logger.info(f"Starte App Update '{provision.container_name}' auf {host.hostname}")
 
-        # 2. Neuen Docker‑Run‑Befehl erzeugen (letztes Token – Image – ersetzen)
-        docker_run_cmd_new = re.sub(r"\S+$", new_image, provision.docker_run_cmd)
-        logger.debug(f"Alter Docker‑Run‑Cmd:  {provision.docker_run_cmd}")
-        logger.debug(f"Neuer Docker‑Run‑Cmd: {docker_run_cmd_new}")
+        logger.info(
+            f"Starte App Update '{provision.container_name}' "
+            f"auf {host.hostname}"
+        )
 
-        # 3. Alle Befehle in einer SSH‑Session ausführen
+        # 2. Neuen Docker-Run-Befehl erzeugen
+        docker_run_cmd_new = re.sub(
+            r"\S+$",
+            lambda _: new_image,
+            provision.docker_run_cmd,
+        )
+
+        logger.debug(f"Neuer Docker-Run-Cmd: {docker_run_cmd_new}")
+
+        # 3. Alle Docker-Kommandos in einer SSH-Session
         with _ssh_client(host) as ssh:
-            # Stop
-            _, out, _ = _run_cmd(ssh, f"docker stop {provision.container_id}")
-            logger.debug(f"Stop‑Output: {out}")
 
-            # Remove
-            _, out, _ = _run_cmd(ssh, f"docker rm {provision.container_id}")
-            logger.debug(f"Remove‑Output: {out}")
+            old_container_exists = False
 
-            # Start mit neuem Image
-            _, container_id_new, _ = _run_cmd(ssh, docker_run_cmd_new)
-            logger.debug(f"Start‑Output: {container_id_new}")
+            # -------------------------------------------------
+            # Prüfen, ob der alte Container noch existiert
+            # -------------------------------------------------
 
-        # 4. Modell‑Daten aktualisieren (optional, aber nützlich)
+            if provision.container_id:
+
+                inspect_cmd = (
+                    "docker inspect --type container "
+                    f"{shlex.quote(provision.container_id)}"
+                )
+
+                exit_code, stdout, stderr = _run_cmd(
+                    ssh,
+                    inspect_cmd,
+                )
+
+                if exit_code == 0:
+                    old_container_exists = True
+                elif "no such object" in stderr.lower() or "no such container" in stderr.lower():
+                    stderr = stderr or ""
+                    stdout = stdout or ""
+
+                    if exit_code == 0:
+                        old_container_exists = True
+
+                    elif (
+                            "no such object" in stderr.lower()
+                            or "no such container" in stderr.lower()
+                    ):
+                        old_container_exists = False
+
+                    else:
+                        raise RuntimeError(
+                            f"Docker inspect fehlgeschlagen: {stderr}"
+                        )
+                else:
+                    raise RuntimeError(
+                        f"Docker inspect fehlgeschlagen: {stderr}"
+                    )
+
+                if old_container_exists:
+                    logger.info(
+                        f"Alter Container {provision.container_id} "
+                        "existiert noch."
+                    )
+                else:
+                    logger.info(
+                        f"Alter Container {provision.container_id} "
+                        "existiert nicht mehr. Stop und Remove werden "
+                        "übersprungen."
+                    )
+
+            # -------------------------------------------------
+            # Alten Container stoppen und entfernen
+            # -------------------------------------------------
+
+            if old_container_exists:
+
+                # Stop
+                exit_code, out, err = _run_cmd(
+                    ssh,
+                    f"docker stop {shlex.quote(provision.container_id)}",
+                )
+
+                if exit_code != 0:
+                    raise RuntimeError(
+                        f"Docker stop fehlgeschlagen: {err}"
+                    )
+
+                logger.debug(f"Stop-Output: {out}")
+
+                # Remove
+                exit_code, out, err = _run_cmd(
+                    ssh,
+                    f"docker rm {shlex.quote(provision.container_id)}",
+                )
+
+                if exit_code != 0:
+                    raise RuntimeError(
+                        f"Docker rm fehlgeschlagen: {err}"
+                    )
+
+                logger.debug(f"Remove-Output: {out}")
+
+            # -------------------------------------------------
+            # Neuen Container starten
+            # -------------------------------------------------
+
+            exit_code, container_id_new, stderr = _run_cmd(
+                ssh,
+                docker_run_cmd_new,
+            )
+
+            if exit_code != 0:
+                raise RuntimeError(
+                    f"Docker start fehlgeschlagen: {stderr}"
+                )
+
+            container_id_new = container_id_new.strip()
+
+            if not container_id_new:
+                raise RuntimeError(
+                    "Docker start lieferte keine Container-ID zurück."
+                )
+
+            logger.info(
+                f"Neuer Container gestartet: {container_id_new}"
+            )
+
+        # 4. Datenbank aktualisieren
         provision.docker_run_cmd = docker_run_cmd_new
-        provision.image = new_image   # falls vorhanden
+        provision.image = new_image
         provision.container_id = container_id_new
-        provision.save(update_fields=["docker_run_cmd", "image", "container_id"])
 
-        logger.info(f"Update für Provision {provision_id} erfolgreich abgeschlossen")
+        provision.save(
+            update_fields=[
+                "docker_run_cmd",
+                "image",
+                "container_id",
+            ]
+        )
+
+        logger.info(
+            f"Update für Provision {provision_id} erfolgreich abgeschlossen"
+        )
+
         return True
 
-    except Exception as exc:          # noqa: BLE001 (Broad Exception is okay here)
-        # Loggt die Fehlermeldung und startet einen Retry
-        host_name = host.hostname if 'host' in locals() else "<unknown>"
-        logger.error(
-            f"Fehler beim Update von Provision {provision_id} auf {host_name}: {exc}",
-            exc_info=True
+    except Exception as exc:
+        host_name = (
+            host.hostname if "host" in locals() else "<unknown>"
         )
-        # Celery‑Retry: das Task-Objekt kennt die Retry‑Logik
+
+        logger.error(
+            f"Fehler beim Update von Provision {provision_id} "
+            f"auf {host_name}: {exc}",
+            exc_info=True,
+        )
+
         raise self.retry(exc=exc, countdown=60)

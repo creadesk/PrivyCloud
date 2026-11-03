@@ -44,3 +44,8 @@ keys/*
 
 # Msty
 *.mstyignore
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*

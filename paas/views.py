@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 
 from django import forms
 from django.db import transaction
@@ -104,7 +105,10 @@ def select_app(request):
               'tor_auth_type': app_def.tor_auth_type,
           })
       else:
-            form = FormCls()
+          return render(request, 'paas/select_app.html', {
+              'form': form,
+              "PLATFORM_NAME": PLATFORM_NAME,
+          })
   else:
     form = FormCls()
 
@@ -136,51 +140,68 @@ def deploy_app(request):
     # ──────────────────────── Formular‑Klasse bestimmen ─────────────────────
     FormCls = DeployFormAdmin if request.user.is_superuser else DeployForm
 
+    if request.method == 'GET':
+        form = FormCls()
+        return render(request, 'paas/select_app.html', {
+            'form': form,
+            "PLATFORM_NAME": PLATFORM_NAME,
+        })
+
     """
     Deploy‑View mit sauberer Aufteilung in Helfer‑Funktionen.
     """
     if request.method == 'POST':
 
-        do_it = 'doIT' in request.POST  # Hidden‑Field
+        do_it = 'doIT' in request.POST
         form = FormCls(request.POST)
 
-        if not do_it:
-            if form.is_valid():
-                """Verarbeitet ein gültiges Formular und führt das Deploy noch nicht aus."""
-                app_def = form.cleaned_data.get('app')
-                duration = form.cleaned_data['duration']  # timedelta oder None
-                target_host = form.cleaned_data.get('target_host')
+        if not form.is_valid():
+            print("FORM ERRORS:", form.errors)
 
-                # nur editierbare Umgeb.Variablen an den Client schicken
-                app_env_vars = AppEnvVarPerApp.objects.filter(app=app_def, editable=True) if app_def else []
-
-                # Alle kompletten Image‑Strings für die gewählte App generieren
-                tags_qs = app_def.image_tags.all().order_by('-tag')
-                full_images = [app_def.full_docker_image(tag) for tag in tags_qs]
-
-                # Nur die Vorschau anzeigen – kein Deploy
-                context = {
-                    'app_selected': app_def,
-                    'duration_selected': duration,
-                    'target_host_selected': target_host,
-                    'app_description': app_def.description,
-                    'readonly': True,
-                    'app_env_vars': app_env_vars,
-                    'images': full_images,
-                    'tor_auth_type': app_def.tor_auth_type,
-                    "PLATFORM_NAME": PLATFORM_NAME,
-                }
-                return render(request, 'paas/deploy_app.html', context)
-            else:
-                # Form had errors; they'll be displayed in the template
-                pass
             return render(request, 'paas/select_app.html', {
                 'form': form,
-                "PLATFORM_NAME": PLATFORM_NAME,
+                'PLATFORM_NAME': PLATFORM_NAME,
             })
+
+        if not do_it:
+
+            # Vorschau erzeugen
+            app_def = form.cleaned_data['app']
+            duration = form.cleaned_data['duration']
+            target_host = form.cleaned_data.get('target_host')
+
+            app_env_vars = AppEnvVarPerApp.objects.filter(
+                app=app_def,
+                editable=True
+            )
+
+            tags_qs = app_def.image_tags.all().order_by('-tag')
+            full_images = [
+                app_def.full_docker_image(tag)
+                for tag in tags_qs
+            ]
+
+            context = {
+                'app_selected': app_def,
+                'duration_selected': request.POST.get('duration'),
+                'target_host_selected': target_host,
+                'app_description': app_def.description,
+                'readonly': True,
+                'app_env_vars': app_env_vars,
+                'images': full_images,
+                'tor_auth_type': app_def.tor_auth_type,
+                'PLATFORM_NAME': PLATFORM_NAME,
+            }
+
+            return render(request, 'paas/deploy_app.html', context)
+
         else:
-            print("Starte _handle_deploy")
-            return _handle_deploy(request,form)
+
+            print("FORM VALID!")
+            print("CLEANED DATA:", form.cleaned_data)
+
+            return _handle_deploy(request, form)
+
 
 
 
@@ -189,19 +210,10 @@ def deploy_app(request):
 # ----------------------------------------------------------------------
 def _handle_deploy(request, form):
 
-    app_selected = request.POST.get('app_selected')
-    print(app_selected)
-
     # Das ausgewählte Image holen
     selected_image = request.POST.get('image_choice')
-    # Appdefinition sicher holen
-    app_def = get_object_or_404(AppDefinition, name=app_selected)
-    '''
-    try:
-        app_def = AppDefinition.objects.get(name=app_selected)
-    except AppDefinition.DoesNotExist:
-        app_def = None  # oder andere Fehlerbehandlung
-    '''
+
+    app_def = form.cleaned_data['app']
 
     # Super‑User‑Only‑Check
     if app_def.super_user_only and not request.user.is_superuser:
@@ -225,14 +237,9 @@ def _handle_deploy(request, form):
 
     # --- alles OK mit der image Auswahl--------------------------------------------------
 
-    duration = request.POST.get('duration_selected', 1)
+    duration = form.cleaned_data['duration']
 
-    target_host_selected = request.POST.get('target_host_selected')
-
-    try:
-        target_host = RemoteHost.objects.get(hostname=target_host_selected)
-    except RemoteHost.DoesNotExist:
-        target_host = None
+    target_host = form.cleaned_data.get('target_host')
 
     # ---------- Host‑Restriktion prüfen --------------------
     if target_host and target_host.nur_superuser and not request.user.is_superuser:
@@ -240,7 +247,7 @@ def _handle_deploy(request, form):
         # Wir geben eine klare Fehlermeldung zurück – keine neue Provision wird angelegt.
         return render_deploy(
             request,
-            error=("Der ausgewählte Host ist ausschließlich für Super‑Users "
+            error=("Der ausgewählte Host ist ausschließlich für Super-Users "
                    "reserviert. Bitte wähle einen anderen Host."),
             app_def=app_def,
         )
@@ -289,9 +296,11 @@ def _handle_deploy(request, form):
     expires_at = None
     print('duration:')
     print(duration)
-    if duration is not None and duration != 'None':
-        duration_delta = parse_duration(duration)
+    if duration is not None:
+        duration_delta = duration
         expires_at = timezone.now() + duration_delta
+    else:
+        expires_at = None
 
     # 6) Authentisierung
     #tor_auth_type = request.POST.get('tor_auth_type', 'none')
@@ -478,25 +487,41 @@ def delete_app(request, pk):
 @login_required
 @rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def stop_app(request, pk):
-    provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
-    provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
+    provision = get_object_or_404(
+        ProvisionedApp,
+        pk=pk,
+        user=request.user
+    )
 
-    # ---------- Stoppen ----------
     if request.method == 'POST':
-        # Sicherheits‑Check: der Benutzer muss wieder die App besitzen
-        print(provision.status)
-        if provision.status not in ('running', 'deleting', 'stopped', 'error', 'restarting', 'pending'):
+
+        allowed_statuses = (
+            'running',
+            'deleting',
+            'stopped',
+            'error',
+            'restarting',
+            'pending',
+        )
+
+        if provision.status not in allowed_statuses:
             return redirect("paas_my_apps")
 
+        # Status zunächst auf stopping setzen
         provision.status = 'stopping'
-        provision.save()
-        print("Stoppe Container")
-        provision.stop_container()
+        provision.save(update_fields=['status'])
 
-        # Nach erfolgreichem stoppen Weiterleitung
-        return redirect("paas_my_apps")
+        # Container stoppen
+        success = provision.stop_container()
 
-    # Für jede andere Methode (z.B. GET) leiten wir einfach weiter
+        # Endgültigen Status speichern
+        if success:
+            provision.status = 'stopped'
+        else:
+            provision.status = 'error'
+
+        provision.save(update_fields=['status'])
+
     return redirect("paas_my_apps")
 
 
@@ -504,7 +529,6 @@ def stop_app(request, pk):
 @rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def start_app(request, pk):
     provision = get_object_or_404(ProvisionedApp, pk=pk, user=request.user)
-    provisions = ProvisionedApp.objects.filter(user=request.user).order_by('-started_at')
 
     # ---------- Stoppen ----------
     if request.method == 'POST':
@@ -560,6 +584,10 @@ def update_provisioned_app(request):
         return redirect('paas_my_apps')
 
     image_part, tag_part = new_image.split(':', 1)  # nur das erste ':' teilen
+
+    if not image_part or not tag_part:
+        print(f"Image part oder Tag part ist nicht angegeben.")
+        return redirect('paas_my_apps')
 
     # Prüfen, ob das Image in AppDefinition existiert
     try:
@@ -658,42 +686,58 @@ def delete_image(request, host_id, image_id):
             else:
                 messages.success(request, f"Image {image_id} erfolgreich gelöscht auf Host {host}.")
     except Exception as exc:          # generische Ausnahme genügt – _ssh_client kümmert sich um close()
-        messages.error(request, f"SSH‑Fehler bei Host {host}: {exc}")
+        messages.error(request, f"SSH-Fehler bei Host {host}: {exc}")
 
     return redirect('paas_images')
 
 
 
+
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
-@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
+@rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h', skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
 def docker_logs(request, provision_id: int) -> HttpResponse:
     """
-    Zeigt die letzten <lines> Zeilen des Docker‑Logs des Container‑IDs,
+    Zeigt die letzten <lines> Zeilen des Docker-Logs des Containers,
     der in der ProvisionedApp hinterlegt ist.
-    Nur Super‑User haben Zugriff.
+
+    Nur Super-User haben Zugriff.
     """
+
     provision = get_object_or_404(ProvisionedApp, id=provision_id)
 
     # ------------------------------------------------------------------
     # Parameter verarbeiten
     # ------------------------------------------------------------------
-    lines_param = request.GET.get('lines', None)
+
+    DEFAULT_LINES = 100
+    MAX_LINES = 10000
+
+    lines_param = request.GET.get('lines')
+
     try:
         tail = int(lines_param) if lines_param else None
+
         if tail is not None and tail <= 0:
             raise ValueError
+
+        # Maximale Anzahl der Log-Zeilen begrenzen
+        if tail is not None:
+            tail = min(tail, MAX_LINES)
+
     except ValueError:
-        # Fallback zu 100 Zeilen, falls ungültiger Wert eingegeben wurde
-        tail = 100
+        # Fallback bei ungültigen Werten
+        tail = DEFAULT_LINES
 
     # ------------------------------------------------------------------
-    # Docker‑Client über SSH initialisieren
+    # Docker-Client über SSH initialisieren
     # ------------------------------------------------------------------
+
     client = provision._docker_client()
+
     if client is None:
         return HttpResponse(
-            'Docker‑Client konnte nicht initialisiert werden.',
+            'Docker-Client konnte nicht initialisiert werden.',
             status=500,
             content_type='text/plain',
         )
@@ -701,37 +745,68 @@ def docker_logs(request, provision_id: int) -> HttpResponse:
     # ------------------------------------------------------------------
     # Logs abrufen
     # ------------------------------------------------------------------
-    if not provision.container_id:
-        logs_text = 'Kein Container‑ID vorhanden.'
-    else:
+
+    try:
+        if not provision.container_id:
+            logs_text = 'Kein Container-ID vorhanden.'
+
+        else:
+            container = client.containers.get(
+                provision.container_id
+            )
+
+            # stream=False liefert das komplette Log-Blob
+            logs_bytes = container.logs(
+                tail=tail,
+                stream=False,
+            )
+
+            logs_text = logs_bytes.decode(
+                'utf-8',
+                errors='replace',
+            )
+
+    except Exception as exc:
+        logs_text = f'Fehler beim Auslesen der Logs: {exc}'
+
+    finally:
+        # Docker-Verbindung IMMER schließen,
+        # auch wenn beim Abrufen der Logs ein Fehler auftritt.
         try:
-            container = client.containers.get(provision.container_id)
-            # stream=False liefert das komplette Log‑Blob
-            logs_bytes = container.logs(tail=tail, stream=False)
-            logs_text = logs_bytes.decode('utf-8', errors='replace')
-        except Exception as exc:
-            logs_text = f'Fehler beim Auslesen der Logs: {exc}'
+            client.close()
+        except Exception:
+            # Fehler beim Schließen sollen die eigentliche
+            # HTTP-Antwort nicht verhindern.
+            pass
 
     # ------------------------------------------------------------------
-    # Ausgabe als plain‑text (im Browser als neuer Tab)
+    # Ausgabe als Plain-Text (im Browser als neuer Tab)
     # ------------------------------------------------------------------
+
     response = HttpResponse(
         logs_text,
         content_type='text/plain; charset=utf-8',
     )
+
     response['Content-Disposition'] = (
         f'inline; filename="docker-logs-{provision.id}.txt"'
     )
+
     return response
 
 
+
 # ---------------------------------
-# Utility: sichere Pfad‑Validierung
+# Utility: sichere Pfad-Validierung
 # ---------------------------------
-_LOG_PATH_RE = re.compile(r'^/(?!.*\.\./).*')   # absolut, keine '..'
+_LOG_PATH_RE = re.compile(r'^/[a-zA-Z0-9_./-]+$')
 
 def _validate_log_path(path: str) -> bool:
-    return bool(path) and bool(_LOG_PATH_RE.match(path))
+    return (
+        isinstance(path, str)
+        and bool(_LOG_PATH_RE.fullmatch(path))
+        and '..' not in path.split('/')
+    )
 
 def _run_cmd_bytes(ssh, command: str) -> Tuple[int, bytes, bytes]:
     """
@@ -745,9 +820,7 @@ def _run_cmd_bytes(ssh, command: str) -> Tuple[int, bytes, bytes]:
     exit_status = stdout_f.channel.recv_exit_status()
     return exit_status, stdout_data, stderr_data
 
-# ---------------------------------
-# Applikations‑Logs
-# ---------------------------------
+
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 @rate_limit(key='user', rate=f'{USER_RATELIMIT_PER_HOUR}/h',skip_if=lambda request: (request.user.is_authenticated and request.user.is_superuser),)
@@ -769,7 +842,10 @@ def application_logs(request, pk):
         lines = 200
 
     # 1. Prüfen, ob die Datei im Container existiert (ls‑Check)
-    cmd_check = f"docker exec {provision.container_id} test -f {log_path}"
+    cmd_check = (
+        f"docker exec {shlex.quote(provision.container_id)} "
+        f"test -f {shlex.quote(log_path)}"
+    )
     try:
         with _ssh_client(provision.host) as ssh:
             exit_code, _, _ = _run_cmd_bytes(ssh, cmd_check)
@@ -783,8 +859,8 @@ def application_logs(request, pk):
 
     # 2. Tail‑Befehl ausführen
     cmd_tail = (
-        f"docker exec {provision.container_id} sh -c "
-        f"\"tail -n {lines} {log_path}\""
+        f"docker exec {shlex.quote(provision.container_id)} sh -c "
+        f"{shlex.quote(f'tail -n {lines} {shlex.quote(log_path)}')}"
     )
 
     try:
@@ -897,9 +973,16 @@ def mark_delete(request):
     dirname = request.POST.get("dirname")
 
     # Basic validation – nothing is allowed to contain a slash or be empty
-    if not host_id or not dirname or "/" in dirname or ".." in dirname:
+    if (
+            not host_id
+            or not dirname
+            or not re.fullmatch(r"[a-zA-Z0-9_.-]+", dirname)
+            or ".." in dirname
+    ):
         messages.error(request, "Ungültige Eingabe.")
         return redirect(reverse("paas_data_corpses"))
+
+
 
     host = get_object_or_404(RemoteHost, pk=host_id)
 
@@ -913,7 +996,7 @@ def mark_delete(request):
     try:
         with _ssh_client(host) as ssh:
             # Prüfen, ob die Ziel‑Datei bereits existiert
-            check_cmd = f'test -e {new_path}'
+            check_cmd = f"test -e {shlex.quote(new_path)}"
             exit_code, _, _ = _run_cmd(ssh, check_cmd)
             if exit_code == 0:
                 messages.warning(
@@ -923,7 +1006,7 @@ def mark_delete(request):
                 return redirect(reverse("paas_data_corpses"))
 
             # Rename durchführen
-            rename_cmd = f'mv "{old_path}" "{new_path}"'
+            rename_cmd = f"mv -- {shlex.quote(old_path)} {shlex.quote(new_path)}"
             exit_code, _, err = _run_cmd(ssh, rename_cmd)
             if exit_code != 0:
                 messages.error(
@@ -934,7 +1017,7 @@ def mark_delete(request):
 
     except Exception as exc:        # pragma: no cover – Netzwerk‑/SSH‑Fehler
         # In einer Produktionsumgebung würde man hier logging.exception(...)
-        messages.error(request, f"SSH‑Fehler: {exc}")
+        messages.error(request, f"SSH-Fehler: {exc}")
         return redirect(reverse("paas_data_corpses"))
 
     messages.success(request, f"'{dirname}' wurde zu '{new_name}' umbenannt und zur Löschung vorgemerkt.")
@@ -958,7 +1041,7 @@ def paas_log_cleanup(request, host_id):
     log_path = f"/home/{host.ssh_user}/cleanup_data_corpses.log"
 
     if not _validate_log_path(log_path):
-        return HttpResponseBadRequest("Ungültiger Log‑Pfad.")
+        return HttpResponseBadRequest("Ungültiger Log-Pfad.")
 
     # Pull the file via SSH
     try:
@@ -969,12 +1052,12 @@ def paas_log_cleanup(request, host_id):
     except Exception as exc:
         # Log the exception in real projects – here we keep it simple
         return HttpResponseServerError(
-            f"SSH‑Verbindung fehlgeschlagen: {exc}"
+            f"SSH-Verbindung fehlgeschlagen: {exc}"
         )
 
     if exit_code != 0:
         # Provide the stderr content – useful for “file not found”
-        err_text = stderr.decode("utf‑8", errors="replace")
+        err_text = stderr.decode("utf-8", errors="replace")
         return HttpResponseServerError(
             f"Fehler beim Lesen der Logdatei:\n{err_text}"
         )
@@ -1113,6 +1196,47 @@ def data_export_app_def(request):
     )
 
 
+def sanitize_export_filename(filename):
+    """
+    Bereinigt einen Dateinamen für den JSON-Export.
+
+    - Entfernt Pfadangaben.
+    - Erlaubt nur Buchstaben, Zahlen, _, -, und .
+    - Verhindert problematische Zeichen im HTTP-Header.
+    - Erzwingt die Endung .json.
+    """
+
+    if not filename:
+        return "app_export.json"
+
+    # Eventuelle Pfadangaben entfernen
+    filename = filename.replace("\\", "/").split("/")[-1]
+
+    # Nur erlaubte Zeichen behalten
+    filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
+
+    # Mehrfache Punkte verhindern (z.B. ...)
+    filename = re.sub(r"\.{2,}", ".", filename)
+
+    # Führende und abschließende Punkte entfernen
+    filename = filename.strip(".")
+
+    # Dateiendung erzwingen
+    if not filename.lower().endswith(".json"):
+        filename += ".json"
+
+    # Leeren Dateinamen abfangen
+    if filename == ".json":
+        filename = "app_export.json"
+
+    # Maximale Länge inklusive Dateiendung
+    max_length = 100
+    filename = filename[:max_length - 5].rstrip(".")
+    filename += ".json" if not filename.lower().endswith(".json") else ""
+
+    return filename or "app_export.json"
+
+
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def download_app_export(request):
@@ -1134,8 +1258,12 @@ def download_app_export(request):
         status=200,
     )
     # The filename that was rendered on the success page
-    filename = request.GET.get("filename", "app_export.json")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    filename = sanitize_export_filename(
+        request.GET.get("filename", "app_export.json")
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename}"'
+    )
 
     return response
 
@@ -1178,16 +1306,28 @@ def data_import_app_def(request):
 
         json_text = form.cleaned_data["json_data"].strip()
         if not json_text:
-            messages.error(request, "Der JSON‑Bereich darf nicht leer sein.")
+            messages.error(request, "Der JSON-Bereich darf nicht leer sein.")
             return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
 
         try:
             app_definitions = json.loads(json_text)
+
             if not isinstance(app_definitions, list):
                 raise ValueError("JSON muss ein Array sein.")
+
+            for index, entry in enumerate(app_definitions):
+                if not isinstance(entry, dict):
+                    raise ValueError(
+                        f"Eintrag {index + 1} muss ein JSON-Objekt sein."
+                    )
+
         except (json.JSONDecodeError, ValueError) as exc:
-            messages.error(request, f"JSON‑Fehler: {exc}")
-            return render(request, "paas/data_import_select.html", {"form": form, "PLATFORM_NAME": PLATFORM_NAME})
+            messages.error(request, f"JSON-Fehler: {exc}")
+            return render(
+                request,
+                "paas/data_import_select.html",
+                {"form": form, "PLATFORM_NAME": PLATFORM_NAME},
+            )
 
         # ------------------------------------------------------------
         # All database changes must happen atomically – otherwise we risk a half‑import.
@@ -1242,7 +1382,7 @@ def data_import_app_def(request):
                     for ev in env_vars:
                         key = ev.get("key")
                         if not key:
-                            raise ValueError("Jede env‑Var braucht einen 'key'.")
+                            raise ValueError("Jede env-Var braucht einen 'key'.")
                         AppEnvVarPerApp.objects.update_or_create(
                             app=app_obj,
                             key=key,

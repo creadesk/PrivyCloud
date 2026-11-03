@@ -8,8 +8,15 @@ DURATION_RE = re.compile(r'^(?P<value>\d+)(?P<unit>[hdwm])$')
 
 def parse_duration(value):
     """Konvertiert '1h', '2d', … in ein datetime.timedelta (oder None)."""
+
     if value == 'no_limit':
         return None
+
+    if not isinstance(value, str):
+        raise ValidationError(
+            _('Ungültige Dauerangabe: %(value)s'),
+            params={'value': value},
+        )
 
     match = DURATION_RE.match(value)
     if not match:
@@ -45,12 +52,14 @@ class DurationField(forms.ChoiceField):
 
     def to_python(self, value):
         """
-        Für die Choice‑Validierung wollen wir den ursprünglichen String behalten.
-        Deshalb geben wir hier **nicht** das timedelta zurück.
+        Für die Choice-Validierung behalten wir den ursprünglichen String.
         """
         if value in (None, ''):
-            raise ValidationError(_('Bitte wählen Sie eine Dauer aus.'))
-        return value   # <‑‑ String behalten
+            if self.required:
+                raise ValidationError(_('Bitte wählen Sie eine Dauer aus.'))
+            return None
+
+        return value
 
     def clean(self, value):
         """
@@ -59,6 +68,9 @@ class DurationField(forms.ChoiceField):
         """
         # Standard‑Choice‑Validierung (inkl. `required`, `widget`, …)
         value = super().clean(value)   # value ist jetzt ein String
+
+        if value in (None, ''):
+            return None
 
         # Umwandlung in timedelta
         return parse_duration(value)

@@ -72,12 +72,9 @@ class AdminOnlyFromPrivateIPMiddleware:
     @staticmethod
     def _get_client_ip(request):
         """
-        Ermittelt die Client‑IP aus X-Forwarded-For (wenn vorhanden) oder
-        REMOTE_ADDR. Für die meisten Setups hinter einem Reverse‑Proxy
-        ist X-Forwarded-For korrekt.
+        Ermittelt ausschließlich die IP-Adresse der direkten Verbindung.
+
+        X-Forwarded-For wird bewusst ignoriert, da kein vertrauenswürdiger
+        Reverse Proxy vorgeschaltet ist.
         """
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            # Mehrere IPs möglich – die erste ist die ursprüngliche Client‑IP
-            return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')

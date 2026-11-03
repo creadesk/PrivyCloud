@@ -94,7 +94,12 @@ class RoundRobinStrategy(TargetSelectionStrategy):
         Retrieve the current round‑robin index from cache, reset if out of range.
         """
         idx = cache.get(self.CACHE_KEY)
-        if idx is None or not isinstance(idx, int) or idx >= num_hosts:
+        if (
+                idx is None
+                or not isinstance(idx, int)
+                or idx < 0
+                or idx >= num_hosts
+        ):
             idx = 0
         return idx
 

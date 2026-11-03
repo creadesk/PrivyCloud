@@ -24,8 +24,13 @@
 
     <!-- New‑app button -->
     <div class="new-app-row">
-        <form method="POST" action="{% url 'paas_select_app' %}">
+        <!--<form method="POST" action="{% url 'paas_select_app' %}">
             {% csrf_token %}
+            <div class="pagination">
+                <button type="submit">Neue App bereitstellen</button>
+            </div>
+        </form>-->
+        <form method="GET" action="{% url 'paas_select_app' %}">
             <div class="pagination">
                 <button type="submit">Neue App bereitstellen</button>
             </div>
