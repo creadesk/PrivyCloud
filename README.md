@@ -11,6 +11,7 @@
 - [Voraussetzungen](#voraussetzungen)
   - [Redis](#redis)
 - [Einrichtung](#einrichtung)
+- [Tests](#tests)
 - [Zielhosts vorbereiten](#zielhosts-vorbereiten)
 - [Dienste einrichten](#dienste-einrichten)
 - [Docker](#docker)
@@ -183,6 +184,21 @@ http://127.0.0.1:8000/<wie_in_env_datei_gesetzt>
 Flower/Celery:
 http://127.0.0.1:5555
 
+## Tests
+
+#### Unit Tests (Code Testing)
+```bash
+coverage erase
+redis-cli -h <your_redis_host> FLUSHDB # rate-limiting zurücksetzen
+coverage run --branch manage.py test # am Ende des Testlaufs muss ein "OK" stehen
+coverage report --fail-under=98 # Testabdeckung muss mind. 98% sein
+coverage html # htmlcov/index.html wird erzeugt --> kann im Web-Browser aufgerufen werden, um Details zu sehen 
+```
+#### E2E Tests (Frontend Testing)
+```bash
+redis-cli -h <your_redis_host> FLUSHDB # rate-limiting zurücksetzen
+pytest tests/e2e -m e2e --headed --slowmo 2000 # playwright testet bestimmte Frontend-Aktivitäten
+```
 
 ## Zielhosts vorbereiten
 - wenn auch bzw. nur lokal bereitgestellt werden soll, sind diese Schritte analog auch für den lokalen Host durchzuführen

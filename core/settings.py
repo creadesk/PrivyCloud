@@ -183,7 +183,7 @@ RATELIMIT_REDIS = {
     'db': REDIS_SERVER_DB,
 }
 USER_RATELIMIT_PER_HOUR = os.getenv('USER_RATELIMIT_PER_HOUR', 200)
-IP_RATELIMIT_PER_MINUTE = os.getenv('IP_RATELIMIT_PER_MINUTE', 10)
+IP_RATELIMIT_PER_MINUTE = os.getenv('IP_RATELIMIT_PER_MINUTE', 50)
 
 # -------------------------------------------------------------
 # Celery Basic Settings – Redis TTL = 900 Sekunden (15 Minuten)
@@ -311,5 +311,6 @@ LOGGING = {
   },
 }
 
-
+# if this is set to "True" Captcha can be passed with value "PASSED"
+CAPTCHA_TEST_MODE = os.getenv("CAPTCHA_TEST_MODE", default="False")
 

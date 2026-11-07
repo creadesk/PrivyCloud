@@ -119,8 +119,7 @@
         {% csrf_token %}
         <button class="btn_list" type="submit">Zurück zu meinen Apps</button>
     </form>
-    <form method="POST" action="{% url 'paas_select_app' %}">
-        {% csrf_token %}
+    <form method="GET" action="{% url 'paas_select_app' %}">
         <button class="btn_list" type="submit">Noch eine App bereitstellen</button>
     </form>
 </div>

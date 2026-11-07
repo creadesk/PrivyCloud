@@ -44,15 +44,15 @@
                 <thead>
                     <tr>
                         <th>App</th>
+                        <th>Web</th>
                         {% if request.user.is_authenticated and request.user.is_superuser %}
                             <th>Ziel-Host</th>
+                            <th>API</th>
+                            <th>API</th>
+                            <th>Host Port1</th>
+                            <th>Host Port2</th>
+                            <th>Host Port3</th>
                         {% endif %}
-                        <th>Web</th>
-                        <th>API</th>
-                        <th>API</th>
-                        <th>Host Port1</th>
-                        <th>Host Port2</th>
-                        <th>Host Port3</th>
                         <th>Startzeit(UTC)</th>
                         <th>Verfallszeit(UTC)</th>
                         <th>Status</th>
@@ -63,71 +63,99 @@
                 {% for p in provisions %}
                     <tr>
                         <td>{{ p.app.display_name }}</td>
+
+                        {% if p.app.app_port_intern_web != 1 %}
+                            <td>
+                             {% if p.onion_address and p.app.hiddenservice_port_web != 1 %}
+                                <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Onion</a>
+                             {% endif %}
+                             {% if p.host and p.port and request.user.is_authenticated and request.user.is_superuser %}
+                                <a href="http://{{ p.host }}:{{ p.port }}" target="_blank">Clearnet</a>
+                             {% endif %}
+                            </td>
+                        {% endif %}
+
                         {% if request.user.is_authenticated and request.user.is_superuser %}
                             <td>{{ p.host }}</td>
                         {% endif %}
-                        <td>
-                            {% if p.app.app_port_intern_web != 1 %}
-                                 {% if p.onion_address and p.app.hiddenservice_port_web != 1 %}
-                                 <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Onion</a>
-                                 {% endif %}
-                                 {% if p.host and p.port %}
-                                 <a href="http://{{ p.host }}:{{ p.port }}" target="_blank">Clearnet</a>
-                                 {% endif %}
-                            {% else %}
-                                X
-                            {% endif %}
-                        </td>
 
-                        <td>
+                        {% if request.user.is_authenticated and request.user.is_superuser %}
+                            <td>
                             {% if p.app.app_port_intern_api != 1 %}
                                 {% if p.onion_address and p.app.hiddenservice_port_api != 1 %}
-                                <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Onion</a>
+                                    <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Onion</a>
                                 {% endif %}
-                                {% if p.host and p.port2 %}
-                                <a href="http://{{ p.host }}:{{ p.port2 }}" target="_blank">Clearnet</a>
-                                {% endif %}
-                            {% else %}
-                                X
+                                    {% if request.user.is_authenticated and request.user.is_superuser %}
+                                        {% if p.host and p.port2 %}
+                                            <a href="http://{{ p.host }}:{{ p.port2 }}" target="_blank">Clearnet</a>
+                                        {% else %}
+                                            X
+                                        {% endif %}
+                                    {% endif %}
                             {% endif %}
-                        </td>
+                            </td>
+                        {% endif %}
+                        {% if request.user.is_authenticated and not request.user.is_superuser %}
+                            {% if p.app.app_port_intern_api != 1 %}
+                            <td>
+                                {% if p.onion_address and p.app.hiddenservice_port_api != 1 %}
+                                    <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api }}" target="_blank">Onion</a>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        {% endif %}
 
+                        {% if request.user.is_authenticated and request.user.is_superuser %}
                         <td>
-                            {% if p.app.app_port_intern_api_2 != 1 %}
-                                {% if p.onion_address and p.app.hiddenservice_port_api_2 != 1 %}
+                        {% if p.app.app_port_intern_api_2 != 1 %}
+                            {% if p.onion_address and p.app.hiddenservice_port_api_2 != 1 %}
                                 <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api_2 }}" target="_blank">Onion</a>
+                            {% endif %}
+                                {% if request.user.is_authenticated and request.user.is_superuser %}
+                                    {% if p.host and p.port3 %}
+                                        <a href="http://{{ p.host }}:{{ p.port3 }}" target="_blank">Clearnet</a>
+                                    {% else %}
+                                        X
+                                    {% endif %}
                                 {% endif %}
-                                {% if p.host and p.port3 %}
-                                <a href="http://{{ p.host }}:{{ p.port3 }}" target="_blank">Clearnet</a>
+                        {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if request.user.is_authenticated and not request.user.is_superuser %}
+                            {% if p.app.app_port_intern_api_2 != 1 %}
+                            <td>
+                                {% if p.onion_address and p.app.hiddenservice_port_api_2 != 1 %}
+                                    <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_api_2 }}" target="_blank">Onion</a>
                                 {% endif %}
-                            {% else %}
-                                X
+                            </td>
                             {% endif %}
-                        </td>
+                        {% endif %}
 
-                        <td>
-                            {% if p.app.app_port_intern_web != 1 and p.port %}
-                                {{ p.port }}
-                            {% else %}
-                                X
-                            {% endif %}
-                        </td>
+                        {% if request.user.is_authenticated and request.user.is_superuser %}
+                            <td>
+                                {% if p.app.app_port_intern_web != 1 and p.port %}
+                                    {{ p.port }}
+                                {% else %}
+                                    X
+                                {% endif %}
+                            </td>
 
-                        <td>
-                            {% if p.app.app_port_intern_api != 1 and p.port2 %}
-                                {{ p.port2 }}
-                            {% else %}
-                                X
-                            {% endif %}
-                        </td>
+                            <td>
+                                {% if p.app.app_port_intern_api != 1 and p.port2 %}
+                                    {{ p.port2 }}
+                                {% else %}
+                                    X
+                                {% endif %}
+                            </td>
 
-                        <td>
-                            {% if p.app.app_port_intern_api_2 != 1 and p.port3 %}
-                                {{ p.port3 }}
-                            {% else %}
-                                X
-                            {% endif %}
-                        </td>
+                            <td>
+                                {% if p.app.app_port_intern_api_2 != 1 and p.port3 %}
+                                    {{ p.port3 }}
+                                {% else %}
+                                    X
+                                {% endif %}
+                            </td>
+                        {% endif %}
 
                         <td>{{ p.started_at|date:"DATETIME_FORMAT" }}</td>
                         <td>{{ p.expires_at|date:"DATETIME_FORMAT" }}</td>
@@ -184,7 +212,7 @@
                     <!-- Detail‑panel under every provision row -->
                     <!-- Panel: Image-Info -->
                     <tr class="panel-row">
-                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}12{% else %}11{% endif %}">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}12{% else %}6{% endif %}">
                             <details class="app-image-panel">
                                 <summary class="panel-summary">
                                     <span class="panel-label">Image‑Info</span>
@@ -224,15 +252,15 @@
                     </tr>
 
                     <!-- Panel: Logs -->
+                    {% if request.user.is_authenticated and request.user.is_superuser %}
                     <tr class="panel-row">
-                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}12{% else %}11{% endif %}">
+                        <td colspan="{% if request.user.is_authenticated and request.user.is_superuser %}12{% else %}6{% endif %}">
                             <details class="app-image-panel">
                                 <summary class="panel-summary">
                                     <span class="panel-label">Logs</span>
                                     <span class="toggle-icon" aria-hidden="true"></span>
                                 </summary>
 
-                                {% if request.user.is_superuser %}
                                     <!-- GET‑Formular für Docker‑Logs -->
                                     <form method="get"
                                           action="{% url 'docker_logs' p.id %}"
@@ -270,10 +298,10 @@
                                         <p class="info-text">Kein Applikations‑Log‑Pfad hinterlegt.</p>
                                         <button type="submit"><a href="{{ request.scheme }}://{{ request.get_host }}/{{ STRING_TO_ADMIN_PATH }}paas/provisionedapp/{{ p.id }}/change/#id_application_log_path" target="_blank">Jetzt hinterlegen</a></button>
                                     {% endif %}
-                                {% endif %}
                             </details>
                         </td>
                     </tr>
+                    {% endif %}
                 {% endfor %}
                 </tbody>
             </table>

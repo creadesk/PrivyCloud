@@ -10,7 +10,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils import timezone
 from django.urls import reverse
-from django.utils.dateparse import parse_duration
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import ProvisionedApp, RemoteHost, AppDefinition, AppEnvVarPerApp, AppImageTag, AppVolumePerApp, \
@@ -42,7 +41,7 @@ def _check_user_limits(user, requested_duration, request):
     3. Max. Dauer pro einzelne Bereitstellung
     """
 
-    requested_duration_dt = parse_duration(requested_duration)
+    requested_duration_dt = requested_duration
 
     # 1) gleichzeitige Apps
     active_apps = ProvisionedApp.objects.filter(user=user, status='active')
