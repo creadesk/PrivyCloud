@@ -63,17 +63,16 @@
                 {% for p in provisions %}
                     <tr>
                         <td>{{ p.app.display_name }}</td>
-
+                        <td>
                         {% if p.app.app_port_intern_web != 1 %}
-                            <td>
                              {% if p.onion_address and p.app.hiddenservice_port_web != 1 %}
                                 <a href="http://{{ p.onion_address }}:{{ p.app.hiddenservice_port_web }}" target="_blank">Onion</a>
                              {% endif %}
                              {% if p.host and p.port and request.user.is_authenticated and request.user.is_superuser %}
                                 <a href="http://{{ p.host }}:{{ p.port }}" target="_blank">Clearnet</a>
                              {% endif %}
-                            </td>
                         {% endif %}
+                        </td>
 
                         {% if request.user.is_authenticated and request.user.is_superuser %}
                             <td>{{ p.host }}</td>
