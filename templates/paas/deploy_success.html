@@ -38,11 +38,13 @@
           <dd>X</dd>
       {% endif %}
 
-      <dt>Adresse(Clearnet)</dt>
-      {% if provision.app.app_port_intern_web != 1 and provision.host != "" %}
-        <dd><a href="http://{{ provision.host }}:{{ provision.port }}" target="_blank">http://{{ provision.host }}:{{ provision.port }}</a></dd>
-      {% else %}
-          <dd>X</dd>
+      {% if request.user.is_authenticated and request.user.is_superuser %}
+          <dt>Adresse(Clearnet)</dt>
+          {% if provision.app.app_port_intern_web != 1 and provision.host != "" %}
+            <dd><a href="http://{{ provision.host }}:{{ provision.port }}" target="_blank">http://{{ provision.host }}:{{ provision.port }}</a></dd>
+          {% else %}
+              <dd>X</dd>
+          {% endif %}
       {% endif %}
 
       <!-- API-Adresse, wenn vorhanden -->
@@ -53,11 +55,13 @@
           <dd>X</dd>
       {% endif %}
 
-      <dt>Adresse-API(Clearnet)</dt>
-      {% if provision.app.app_port_intern_api != 1 and provision.host != "" %}
-          <dd>{{ provision.host }}:{{ provision.port2 }}</dd>
-      {% else %}
-          <dd>X</dd>
+      {% if request.user.is_authenticated and request.user.is_superuser %}
+          <dt>Adresse-API(Clearnet)</dt>
+          {% if provision.app.app_port_intern_api != 1 and provision.host != "" %}
+              <dd>{{ provision.host }}:{{ provision.port2 }}</dd>
+          {% else %}
+              <dd>X</dd>
+          {% endif %}
       {% endif %}
 
       <!-- API-Adresse 2, wenn vorhanden -->
@@ -68,35 +72,37 @@
           <dd>X</dd>
       {% endif %}
 
-      <dt>Adresse-API 2(Clearnet)</dt>
-      {% if provision.app.app_port_intern_api_2 != 1 and provision.host != "" %}
-          <dd>{{ provision.host }}:{{ provision.port3 }}</dd>
-      {% else %}
-          <dd>X</dd>
-      {% endif %}
+      {% if request.user.is_authenticated and request.user.is_superuser %}
+          <dt>Adresse-API 2(Clearnet)</dt>
+          {% if provision.app.app_port_intern_api_2 != 1 and provision.host != "" %}
+              <dd>{{ provision.host }}:{{ provision.port3 }}</dd>
+          {% else %}
+              <dd>X</dd>
+          {% endif %}
 
-      <!-- Host Port 1 -->
-      <dt>Host Port 1</dt>
-      {% if provision.app.app_port_intern_web != 1 and provision.port %}
-        <dd>{{ provision.port }}</dd>
-      {% else %}
-          <dd>X</dd>
-      {% endif %}
+          <!-- Host Port 1 -->
+          <dt>Host Port 1</dt>
+          {% if provision.app.app_port_intern_web != 1 and provision.port %}
+            <dd>{{ provision.port }}</dd>
+          {% else %}
+              <dd>X</dd>
+          {% endif %}
 
-      <!-- Host Port 2 -->
-      <dt>Host Port 2</dt>
-      {% if provision.app.app_port_intern_api != 1 and provision.port2 %}
-        <dd>{{ provision.port2 }}</dd>
-      {% else %}
-          <dd>X</dd>
-      {% endif %}
+          <!-- Host Port 2 -->
+          <dt>Host Port 2</dt>
+          {% if provision.app.app_port_intern_api != 1 and provision.port2 %}
+            <dd>{{ provision.port2 }}</dd>
+          {% else %}
+              <dd>X</dd>
+          {% endif %}
 
-      <!-- Host Port 3 -->
-      <dt>Host Port 3</dt>
-      {% if provision.app.app_port_intern_api_2 != 1 and provision.port3 %}
-        <dd>{{ provision.port3 }}</dd>
-      {% else %}
-          <dd>X</dd>
+          <!-- Host Port 3 -->
+          <dt>Host Port 3</dt>
+          {% if provision.app.app_port_intern_api_2 != 1 and provision.port3 %}
+            <dd>{{ provision.port3 }}</dd>
+          {% else %}
+              <dd>X</dd>
+          {% endif %}
       {% endif %}
 
       <dt>Startzeit</dt>
