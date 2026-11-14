@@ -303,7 +303,7 @@ Host <ZIEL_IP>
 ```
 >Der Client nutzt ab v0.1.0 ausschließlich die in `~/.ssh/config` hinterlegten Keys.
 >Stelle sicher, dass der deploy user ein gültiges private Key‑File hat
->(keine Passphrase) und die Berechtigungen 600 besitzen.
+>(keine Passphrase), aws die Berechtigungen 600 besitzt.
 
 
 #### Bereinigungsroutine für Datenrückstände

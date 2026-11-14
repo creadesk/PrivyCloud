@@ -553,7 +553,7 @@ class AppEnvVarPerApp(models.Model):
     app = models.ForeignKey(AppDefinition, related_name='env_vars',
                             on_delete=models.CASCADE)
     key = models.CharField(max_length=64)
-    value = models.CharField(max_length=256)
+    value = models.CharField(max_length=768)
 
     optional = models.BooleanField(default=False)
 
