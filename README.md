@@ -149,6 +149,8 @@ REDIS_SERVER_IP=<ip_redis_server>
 REDIS_SERVER_PORT=<port_redis_server>
 # Falls Redis neu aufgesetzt den Wert '0' setzen
 REDIS_SERVER_DB=<db_nummer>
+
+CAPTCHA_TEST_MODE=False
 ```
 
 ### 5. Datenbank migrieren

@@ -1126,7 +1126,7 @@ WantedBy=default.target
             if app_def.app_port_intern_api_2 != 1:
                 cmd_parts.append(f"-p {free_port_api_2}:{app_def.app_port_intern_api_2}")
             env_flag_parts = [
-                f"-e {k}={v.replace('<onion_address>', onion_addr) if '<onion_address>' in v else v}"
+                f"-e \'{k}={v.replace('<onion_address>', onion_addr) if '<onion_address>' in v else v}\'"
                 for k, v in final_env.items()
             ]
             cmd_parts.extend(env_flag_parts)

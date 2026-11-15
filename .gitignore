@@ -49,3 +49,5 @@ keys/*
 htmlcov/
 .coverage
 .coverage.*
+
+zdockerdata/

@@ -233,7 +233,7 @@ class DeployAppTaskTestCase(TestCase):
         docker_cmd = self.reload_provision().docker_run_cmd
 
         self.assertIn(
-            "-e APP_MODE=production",
+            "-e 'APP_MODE=production'",
             docker_cmd,
         )
 
@@ -259,12 +259,12 @@ class DeployAppTaskTestCase(TestCase):
         docker_cmd = self.reload_provision().docker_run_cmd
 
         self.assertIn(
-            "-e APP_MODE=development",
+            "-e 'APP_MODE=development'",
             docker_cmd,
         )
 
         self.assertNotIn(
-            "-e APP_MODE=production",
+            "-e 'APP_MODE=production'",
             docker_cmd,
         )
 
@@ -345,7 +345,7 @@ class DeployAppTaskTestCase(TestCase):
 
         # Docker-Kommando enthält die ersetzte Adresse
         self.assertIn(
-            f"-e APP_URL=http://{onion_address}",
+            f"-e 'APP_URL=http://{onion_address}'",
             provision.docker_run_cmd,
         )
 
