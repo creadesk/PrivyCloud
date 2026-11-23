@@ -11,55 +11,25 @@ import shlex
 import paramiko
 import os
 from contextlib import contextmanager
+from paas.ssh_provider import ssh_client as _central_ssh_client
+import sys
+from paas.docker_ssh_adapter import PrivyCloudSSHAdapter
 
 
-# --------------------------------------------------------------------
-# Hilfsfunktion: ~/.ssh/config auslesen
-# --------------------------------------------------------------------
 def _ssh_config_lookup(hostname: str) -> dict:
     """
-    Liest ~/.ssh/config und gibt die für *hostname* gültigen Optionen zurück.
+    Rückwärtskompatibler Wrapper für den zentralen SSH-Provider.
     """
-    cfg = paramiko.SSHConfig()
-    cfg_file = os.path.expanduser("~/.ssh/config")
+    from paas.ssh_provider import ssh_config_lookup
+    return ssh_config_lookup(hostname)
 
-    if not os.path.exists(cfg_file):
-        raise FileNotFoundError(f"{cfg_file} nicht gefunden")
-
-    with open(cfg_file, encoding="utf-8") as f:
-        cfg.parse(f)
-
-    return cfg.lookup(hostname)
-
-# --------------------------------------------------------------------
-# 1. Context‑Manager für SSH‑Client (ohne Agent / Key‑Search)
-# --------------------------------------------------------------------
 @contextmanager
 def _ssh_client(host):
     """
-    Erzeugt einen Paramiko‑SSH‑Client, der ausschließlich die in
-    ~/.ssh/config hinterlegten Keys benutzt.
+    Rückwärtskompatibler Context-Manager für SSH-Verbindungen.
     """
-    cfg_opts = _ssh_config_lookup(host.hostname)
-
-    username    = cfg_opts.get("user", host.ssh_user)          # Fallback auf das DB‑Feld
-    key_file    = cfg_opts.get("identityfile", [None])[0]      # erstes in der Config
-
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    try:
-        client.connect(
-            hostname=host.hostname,
-            username=username,
-            key_filename=key_file,
-            timeout=10,
-            allow_agent=False,          # Agent explizit ausschalten
-            look_for_keys=False,        # Keine automatischen Key‑Suche
-        )
+    with _central_ssh_client(host) as client:
         yield client
-    finally:
-        client.close()
 
 
 class AppDefinition(models.Model):
@@ -176,7 +146,26 @@ class RemoteHost(models.Model):
     hostname        = models.CharField(max_length=128, unique=True)
     ip_address      = models.GenericIPAddressField()
     ssh_user        = models.CharField(max_length=32, default='root')
-    #ssh_key_path    = models.CharField(max_length=256, null=True, blank=True)
+
+    # SSH-Authentifizierung
+    ssh_auth_method = models.CharField(
+        max_length=16,
+        choices=[
+            ("ssh_config", "SSH-Konfiguration (~/.ssh/config)"),
+            ("openbao", "OpenBAO"),
+        ],
+        default="ssh_config",
+        help_text="Legt fest, wie die SSH-Anmeldung erfolgt.",
+    )
+
+    openbao_secret_path = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=(
+            "OpenBAO-Secret-Pfad, z. B. "
+            "privycloud/ssh/server01"
+        ),
+    )
 
     # ----------   Neues Feld  ------------------------------------
     nur_superuser   = models.BooleanField(
@@ -313,33 +302,70 @@ class ProvisionedApp(models.Model):
   def __str__(self):
       return f"{self.user} – {self.app} on {self.host}"
 
-  # --------------------------------------------------------------------
-  # Docker‑Client über SSH bauen – nutzt die Daten aus `RemoteHost`
-  # --------------------------------------------------------------------
   def _docker_client(self):
       """
-      Baut einen Docker‑Client, der über SSH mit dem zugehörigen
-        RemoteHost verbindet. Der SDK‑Parameter `use_ssh_client=True`
-        übernimmt die SSH‑Authentifizierung; die Standard‑SSH‑Keys des
-        Benutzers werden automatisch verwendet. Für eine benutzerdefinierte
-        Key‑Datei muss eine entsprechende SSH‑Konfiguration im Host
-        (z.B. in ~/.ssh/config) eingerichtet werden.
+      Erstellt einen Docker-Client über den zentralen SSH-Provider.
+
+      Unterstützt ssh_config und OpenBAO.
+      Der SSH-Schlüssel bleibt im Arbeitsspeicher.
       """
       if not self.host_id:
-          print('_docker_client, Fehler-kein host')
+          print('_docker_client: Fehler – kein Host zugeordnet')
           return None
 
-      print(f'_docker_client, Host: {self.host}')
+      print(f'_docker_client: Host {self.host}')
 
-      base_url = f"ssh://{self.host.ssh_user}@{self.host.hostname}"
-
-      print(f'_docker_client, base_url: {base_url}')
+      ssh_context = None
+      paramiko_client = None
+      docker_client = None
+      adapter_mounted = False
 
       try:
-          client = docker.DockerClient(base_url=base_url, use_ssh_client=True)
-          return client
-      except Exception as e:
-          print(f'Verbindung konnte nicht aufgebaut werden – keine Docker‑Operation: {e}')
+          # SSH-Kontext öffnen und Verbindung herstellen.
+          ssh_context = _ssh_client(self.host)
+          paramiko_client = ssh_context.__enter__()
+
+          # Lokale Dummy-Adresse: Der Adapter übernimmt den Transport.
+          docker_client = docker.DockerClient(
+              base_url='tcp://localhost:2375',
+              version='1.44',
+              timeout=60,
+          )
+
+          ssh_url = (
+              f"ssh://{self.host.ssh_user}@{self.host.hostname}"
+          )
+
+          adapter = PrivyCloudSSHAdapter(
+              base_url=ssh_url,
+              ssh_client=paramiko_client,
+              ssh_context=ssh_context,
+              timeout=60,
+          )
+
+          # Docker-SDK-Anfragen über unseren SSH-Adapter leiten.
+          docker_client.api.mount(
+              'http://localhost:2375',
+              adapter,
+          )
+
+          adapter_mounted = True
+
+          print('_docker_client: Docker-SSH-Verbindung vorbereitet')
+          return docker_client
+
+      except Exception as exc:
+          print(f'_docker_client: Verbindungsfehler: {exc}')
+
+          if adapter_mounted and docker_client is not None:
+              docker_client.close()
+          else:
+              if docker_client is not None:
+                  docker_client.close()
+
+              if ssh_context is not None:
+                  ssh_context.__exit__(*sys.exc_info())
+
           return None
 
   # --------------------------------------------------------------------

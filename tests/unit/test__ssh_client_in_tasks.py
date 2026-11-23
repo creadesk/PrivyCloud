@@ -23,12 +23,13 @@ class SSHClientTests(SimpleTestCase):
         self.host = MagicMock()
         self.host.hostname = "example.com"
         self.host.ssh_user = "fallback_user"
+        self.host.ssh_auth_method = "ssh_config"
 
         self.client = MagicMock()
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_uses_config_user_and_first_key(
         self,
         mock_load_config,
@@ -68,9 +69,9 @@ class SSHClientTests(SimpleTestCase):
 
         self.client.close.assert_called_once_with()
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_uses_model_user_as_fallback(
         self,
         mock_load_config,
@@ -96,9 +97,9 @@ class SSHClientTests(SimpleTestCase):
 
         self.client.close.assert_called_once_with()
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_without_identity_file(
         self,
         mock_load_config,
@@ -124,9 +125,9 @@ class SSHClientTests(SimpleTestCase):
 
         self.client.close.assert_called_once_with()
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_with_empty_identity_file_list(
         self,
         mock_load_config,
@@ -146,9 +147,9 @@ class SSHClientTests(SimpleTestCase):
             self.client.connect.call_args.kwargs["key_filename"]
         )
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_closes_connection_after_exception_in_context(
         self,
         mock_load_config,
@@ -167,9 +168,9 @@ class SSHClientTests(SimpleTestCase):
 
         self.client.close.assert_called_once_with()
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_closes_connection_after_connect_exception(
         self,
         mock_load_config,
@@ -191,9 +192,9 @@ class SSHClientTests(SimpleTestCase):
 
         self.client.close.assert_called_once_with()
 
-    @patch("paas.tasks.paramiko.AutoAddPolicy")
-    @patch("paas.tasks.paramiko.SSHClient")
-    @patch("paas.tasks.load_ssh_config")
+    @patch("paas.ssh_provider.paramiko.AutoAddPolicy")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
     def test_ssh_client_does_not_connect_if_config_loading_fails(
         self,
         mock_load_config,

@@ -25,11 +25,26 @@ class AppDefinitionAdmin(admin.ModelAdmin):
   list_display = ('id', 'name', 'display_name', 'docker_image', 'command', 'default_duration', 'app_port_intern_web', 'app_port_intern_api', 'app_port_intern_api_2', 'hiddenservice_port_web', 'hiddenservice_port_api', 'hiddenservice_port_api_2', 'use_deploy_user', 'no_hidden_service', 'use_hostpid_namespace', 'super_user_only', 'tor_auth_type')
   search_fields = ('name', 'display_name')
 
+
 @admin.register(RemoteHost)
 class RemoteHostAdmin(admin.ModelAdmin):
-  list_display = ('id', 'hostname', 'ip_address', 'ssh_user', 'current_load', 'nur_superuser')
-  list_filter = ('current_load',)
-  search_fields = ('hostname', 'ip_address')
+  list_display = (
+      'id',
+      'hostname',
+      'ip_address',
+      'ssh_user',
+      'ssh_auth_method',
+      'openbao_secret_path',
+      'current_load',
+      'nur_superuser',
+  )
+  list_filter = ('current_load', 'ssh_auth_method')
+  search_fields = (
+      'hostname',
+      'ip_address',
+      'openbao_secret_path',
+  )
+
 
 @admin.register(ProvisionedApp)
 class ProvisionedAppAdmin(admin.ModelAdmin):

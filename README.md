@@ -9,7 +9,8 @@
 
 - [Features](#features)
 - [Voraussetzungen](#voraussetzungen)
-  - [Redis](#redis)
+  - [Redis](#1-redis-)
+  - [OpenBAO(optional)](#2-openbao-optional)
 - [Einrichtung](#einrichtung)
 - [Tests](#tests)
 - [Zielhosts vorbereiten](#zielhosts-vorbereiten)
@@ -84,6 +85,81 @@
     sudo systemctl restart redis-server.service
     ```
 
+### 2. OpenBAO (optional)
+Mit HTTPS abgesicherte OpenBAO Instanz läuft, ist entsiegelt und erreichbar.
+
+SSH Keys können dort pro RemoteHost verwahrt werden und müssen dann nicht auf dem PrivyCloud-Rechner liegen.
+Im PrivyCloud Admin-Bereich --> unter "Target-Hosts" kann pro Host über das Feld "Ssh Auth Method" auf "OpenBAO" umgestellt werden.
+
+OpenBAO muss wie folgt vorbereitet sein:
+- KV-v2 Secret Engine unter `secret/`.
+- AppRole-Authentifizierung aktiviert.
+- AppRole `privycloud` angelegt.
+- Dedizierte Policy `privycloud-ssh-read` erstellt.
+
+Die Policy erlaubt ausschließlich Lesezugriffe auf:
+
+```
+secret/data/privycloud/ssh/*
+```
+
+Die SSH-Schlüssel werden unter eindeutigen Pfaden gespeichert, beispielsweise:
+
+```
+secret/privycloud/ssh/server01
+```
+
+Ein Secret enthält folgende Felder:
+
+| Feld          | Bedeutung          |
+| ------------- |--------------------|
+| `private_key` | SSH-Private-Key    |
+| `username`    | SSH-Benutzername   |
+| `hostname`    | Zielhost(nur Doku) |
+| `port`        | SSH-Port           |
+
+#### Zugangsdaten und Sicherheit
+  
+  Die Authentifizierung erfolgt über AppRole mit, RoleID, SecretID, TLS-Zertifikatsprüfung anhand einer privaten CA.
+
+  Die RoleID wird über die Umgebungsvariable `OPENBAO_ROLE_ID` bereitgestellt.  
+  
+  Die SecretID wird nicht in der `.env`-Datei gespeichert.  
+
+  
+  **Systemd-Betrieb:**  
+  
+  Die SecretID liegt unter:  
+  
+  ```
+  /etc/privycloud/openbao_secret_id
+  ```
+  
+  Sie wird über `LoadCredential` an Gunicorn und Celery übergeben.  
+
+  
+  **Manueller Betrieb (**`runserver_plus`**):**  
+  
+  Die SecretID wird direkt aus derselben geschützten Datei gelesen.  
+  
+  Dateiberechtigungen:  
+  
+  ```
+  Eigentümer: root
+  Gruppe:     user
+  Rechte:     640
+  ```
+  
+  Das CA-/Sub-CA -Zertifikatsbundle für TLS liegt unter:  
+  
+  ```
+  /etc/privycloud/pki/openbao-ca-chain.pem
+  ```
+  
+  Die TLS-Zertifikatsprüfung ist immer aktiviert.
+
+  > Eine Schritt-für-Schritt Anleitung zum Thema OpenBAO und HTTPS ohne DNS in privaten Netzen findest du hier: //Link folgt//  
+
 ## Einrichtung
 
 ### 1. Klone das Repository
@@ -151,6 +227,14 @@ REDIS_SERVER_PORT=<port_redis_server>
 REDIS_SERVER_DB=<db_nummer>
 
 CAPTCHA_TEST_MODE=False
+
+# OpenBAO
+OPENBAO_ENABLED=True
+OPENBAO_ROLE_ID=<openbao_role_id>
+OPENBAO_URL=https://<openbao_host>:<openbao_port>
+OPENBAO_KV_MOUNT=<openbao_mount>
+OPENBAO_KV_VERSION=2
+OPENBAO_CA_CERT=/etc/privycloud/pki/<openbao_ssl_ca_and_sub_ca_bundle>.pem
 ```
 
 ### 5. Datenbank migrieren
@@ -305,7 +389,9 @@ Host <ZIEL_IP>
 ```
 >Der Client nutzt ab v0.1.0 ausschließlich die in `~/.ssh/config` hinterlegten Keys.
 >Stelle sicher, dass der deploy user ein gültiges private Key‑File hat
->(keine Passphrase), aws die Berechtigungen 600 besitzt.
+>(keine Passphrase), was die Berechtigungen 600 besitzt.
+
+> Alternativ dazu kann ab Version v0.2.1 OpenBAO angebunden werden. Siehe [OpenBAO](#2-openbao-optional) 
 
 
 #### Bereinigungsroutine für Datenrückstände
@@ -484,6 +570,7 @@ WorkingDirectory=<pfad_zum_projekt>
 ExecStart=<pfad_zum_projekt>/.venv/bin/celery -A core worker --beat --loglevel debug --concurrency 2 --without-gossip --without-mingle --logfile <pfad_zum_projekt>/logs/celery.log
 Restart=always
 RestartSec=5
+LoadCredential=openbao_secret_id:/etc/privycloud/openbao_secret_id #nur, wenn OpenBAO verwendet werden soll
 
 [Install]
 WantedBy=multi-user.target
@@ -514,6 +601,7 @@ User=<app_user>
 Group=<app_group>
 WorkingDirectory=<pfad_zum_projekt>
 ExecStart=<pfad_zum_projekt>/.venv/bin/gunicorn --timeout 550 --workers 3 --bind 0.0.0.0:8000 core.wsgi:application
+LoadCredential=openbao_secret_id:/etc/privycloud/openbao_secret_id #nur, wenn OpenBAO verwendet werden soll
 
 [Install]
 WantedBy=multi-user.target
@@ -585,6 +673,8 @@ docker run -d \
   -v "$(pwd)/zdockerdata/logs:/app/logs" \
   -v "$(pwd)/zdockerdata/db:/app/db" \
   -v ~/.ssh:/home/$(id -un)/.ssh:ro \
+  -v /etc/privycloud/openbao_secret_id:/etc/privycloud/openbao_secret_id:ro \
+  -v /etc/privycloud/pki/openbao-ca-chain.pem:/etc/privycloud/pki/openbao-ca-chain.pem:ro \
   -e HOST_UID=$(id -u) \
   -e HOST_GID=$(id -g) \
   -e HOST_UNAME=$(id -un) \
@@ -604,6 +694,12 @@ docker run -d \
   -e REDIS_SERVER_DB=<db_redis_server> \
   -e USER_RATELIMIT_PER_HOUR=200 \
   -e IP_RATELIMIT_PER_MINUTE=10 \
+  -e OPENBAO_ENABLED=True \
+  -e OPENBAO_URL=https://<openbao_host>:<openbao_port> \
+  -e OPENBAO_ROLE_ID=<openbao_role_id> \
+  -e OPENBAO_KV_MOUNT=<openbao_mount> \
+  -e OPENBAO_KV_VERSION=2 \
+  -e OPENBAO_CA_CERT=/etc/privycloud/pki/<openbao_ssl_ca_and_sub_ca_bundle>.pem \
   <docker_image_name>
 ```
 

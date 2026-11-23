@@ -314,3 +314,11 @@ LOGGING = {
 # if this is set to "True" Captcha can be passed with value "PASSED"
 CAPTCHA_TEST_MODE = os.getenv("CAPTCHA_TEST_MODE", default="False")
 
+
+# OpenBAO
+OPENBAO_ENABLED = os.getenv('OPENBAO_ENABLED', 'False')
+OPENBAO_ROLE_ID = os.getenv('OPENBAO_ROLE_ID', '')
+OPENBAO_URL = os.getenv('OPENBAO_URL', 'http://127.0.0.1:8200')
+OPENBAO_KV_MOUNT = os.getenv('OPENBAO_KV_MOUNT', 'secret')
+OPENBAO_KV_VERSION = os.getenv('OPENBAO_KV_VERSION', '2')
+OPENBAO_CA_CERT = os.getenv('OPENBAO_CA_CERT', '/etc/privycloud/pki/openbao-ca-chain.pem')

@@ -1,4 +1,4 @@
-# core/management/commands/runserver_plus.py
+# paas/management/commands/runserver_plus.py
 import os
 import sys
 import subprocess
@@ -8,7 +8,6 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.conf import settings
 import threading
-import time
 
 
 class Command(BaseCommand):

@@ -28,6 +28,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONHASHSEED=0
 
+RUN mkdir -p /etc/privycloud/pki
+
 WORKDIR /app
 
 RUN mkdir /app/logs/
@@ -52,6 +54,3 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 EXPOSE 8000
 # Expose the port Flower will listen on
 EXPOSE 5555
-
-# Default command (overridden by entrypoint)
-#CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

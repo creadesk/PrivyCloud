@@ -5,7 +5,6 @@ import rsa
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives import serialization
 import time
-import paramiko
 from pathlib import Path
 from django.utils import timezone
 from datetime import datetime
@@ -27,160 +26,32 @@ import contextlib
 from typing import Any, Generator, Optional
 import shlex
 
+from paas.ssh_provider import (ssh_client as _central_ssh_client, ssh_config_lookup,)
+
 
 logger = logging.getLogger(__name__)
 
 
-# ----------------------------------------------------
-# Lokaler SSH‑Client (für localhost)
-# ----------------------------------------------------
-'''
-class LocalSFTP:
-    """Minimaler Ersatz für Paramiko SFTP – nutzt einfach Python‑I/O."""
-    def open(self, path: str, mode: str):
-        # Im lokalen Fall muss das Verzeichnis existieren
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        return open(path, mode)
-'''
-'''
-class LocalSSH:
-    """Paramiko‑ähnlicher Client für die lokale Maschine"""
 
-    def __init__(self, host: "RemoteHost"):
-        self.host = host
-        self.host_obj = host          # damit get_transport() etwas weiß
 
-    # ------------------------------------------------------------------
-    # Dummy‑Transport‑Interface (nur get_username() wird benötigt)
-    # ------------------------------------------------------------------
-    def get_transport(self):
-        class DummyTransport:
-            def __init__(self, username):
-                self._user = username
-
-            def get_username(self):
-                return self._user
-
-        username = (
-            getattr(self.host_obj, "ssh_user", None)
-            or os.getenv("USER", "root")
-        )
-        return DummyTransport(username)
-
-    # ------------------------------------------------------------------
-    # Dummy SFTP‑Interface – **context‑manager‑fähig** + stat()
-    # ------------------------------------------------------------------
-    def open_sftp(self):
-        """
-        Liefert ein Objekt, das Paramiko’s SFTP‑Client simuliert
-        und als Kontext‑Manager verwendet werden kann.
-        """
-
-        class DummySFTP:
-            """Minimale SFTP‑Simulation für lokale Dateien"""
-
-            def __init__(self, base_dir: Path):
-                self.base_dir = base_dir
-
-            def open(self, remote_path, mode="r"):
-                local_path = Path(remote_path).expanduser()
-                if "w" in mode:
-                    local_path.parent.mkdir(parents=True, exist_ok=True)
-                return open(local_path, mode, encoding="utf-8")
-
-            # ---- Kontext‑Manager‑API -----------------------------------
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc_val, exc_tb):
-                # Dummy – nichts zu tun
-                pass
-
-            # --------------------- stat() --------------------------------
-            def stat(self, remote_path):
-                """Prüft, ob die Datei existiert – wirft FileNotFoundError,
-                wenn sie nicht vorhanden ist."""
-                path = Path(remote_path).expanduser()
-                if not path.exists():
-                    raise FileNotFoundError(f"File {remote_path} not found")
-                # Bei Paramiko würde hier ein SFTPAttributes‑Objekt zurück
-                # kommen; das konkreten Objekt braucht unser Code nicht,
-                # daher einfach Path.stat() zurückgeben.
-                return path.stat()
-
-            def close(self):
-                pass
-
-        # Basis: Home‑Verzeichnis
-        return DummySFTP(Path.home())
-
-    # ---- exec_command --------------------------------------------------
-    def exec_command(self, cmd):
-        res = subprocess.run(
-            cmd, shell=True, text=True, capture_output=True
-        )
-        return res.returncode, res.stdout.strip(), res.stderr.strip()
-
-    # ---- Kontext‑Manager‑API ------------------------------------------
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-'''
-
-# ----------------------------------------------------------------------
-# SSH‑Hilfsfunktionen
-# ----------------------------------------------------------------------
 def load_ssh_config(hostname: str):
     """
-    Liest ~/.ssh/config und gibt die Optionen für *hostname* zurück.
+    Rückwärtskompatibler Wrapper für den zentralen SSH-Provider.
     """
-    cfg = paramiko.SSHConfig()
-    cfg_file = os.path.expanduser("~/.ssh/config")
-    if not os.path.exists(cfg_file):
-        raise FileNotFoundError(f"{cfg_file} nicht gefunden")
-
-    with open(cfg_file) as f:
-        cfg.parse(f)
-
-    # Das lookup liefert ein dict, z.B. {'user': 'deploy', 'identityfile': ['/home/user/.ssh/deploy_key']}
-    return cfg.lookup(hostname)
+    return ssh_config_lookup(hostname)
 
 @contextlib.contextmanager
 def _ssh_client(host: "RemoteHost") -> Generator:
     """
-        Öffnet einen Paramiko‑Client, der ausschließlich die in ~/.ssh/config
-        hinterlegten Keys verwendet.
-        """
-    # 1. Config‑Optionen holen
-    opts = load_ssh_config(host.hostname)
-
-    user = opts.get('user', host.ssh_user)  # fallback auf Model‑Feld
-    key_files = opts.get('identityfile', [])  # Liste von Pfaden
-    key_file = key_files[0] if key_files else None  # erster Key
-
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    try:
-        client.connect(
-            hostname=host.hostname,
-            username=user,
-            key_filename=key_file,  # expliziter Pfad
-            allow_agent=False,  # Agent nicht nutzen
-            look_for_keys=False,  # keine weiteren Keys suchen
-            timeout=10,
-        )
+    Rückwärtskompatibler Context-Manager für SSH-Verbindungen.
+    """
+    with _central_ssh_client(host) as client:
         yield client
-    finally:
-        client.close()
 
 
 def _run_cmd(ssh, cmd: str):
     """
-    Unified wrapper that works with both a Paramiko SSHClient
-    *and* the LocalSSH helper used for localhost.
+    Unified wrapper that works with a Paramiko SSHClient
     Returns: (exit_code: int, stdout: str, stderr: str)
     """
     #print(f'cmd in _run_cmd: {cmd}')
@@ -279,7 +150,7 @@ def _write_systemd_unit(ssh, unit_name, unit_content):
     Schreibt die systemd-Unit-Datei in
     ~/.config/systemd/user/ und aktiviert/startet sie.
 
-    Funktioniert sowohl mit Paramiko SSHClient als auch LocalSSH.
+    Funktioniert mit Paramiko SSHClient.
     Bei Fehlern wird eine RuntimeError-Exception ausgelöst.
     """
     # ---------------------------------------------------------
@@ -564,112 +435,6 @@ def _cleanup_provision(provision: ProvisionedApp) -> bool:
         return True
 
 
-'''
-def append_line_via_sftp(
-    ssh,
-    file_path: str,
-    line: str,
-    *,
-    encoding: str = "utf-8",
-    max_retries: int = 3,
-    retry_delay: float = 2.0,
-    log_fn: Optional[callable] = None
-) -> bool:
-    """
-    Append *line* to a file located at *file_path* on the remote host
-    via SFTP. The function will:
-
-        1. Ensure the file exists (create if missing).
-        2. Append the line (adds a trailing newline if absent).
-        3. Verify that the line is indeed present after writing.
-        4. Retry the whole operation on transient failures.
-
-    Parameters
-    ----------
-    ssh : paramiko.SSHClient
-        An established SSH connection.
-    file_path : str
-        Remote path to the target file.
-    line : str
-        Text to append.
-    encoding : str, optional
-        Text encoding used for the remote file (default "utf-8").
-    max_retries : int, optional
-        How many times to retry on transient errors.
-    retry_delay : float, optional
-        Seconds to wait between retries.
-    log_fn : callable, optional
-        Custom logging function accepting a single string argument.
-        Defaults to a simple `print`.
-
-    Returns
-    -------
-    bool
-        ``True`` if the line was appended and verified, otherwise an
-        exception is raised.
-    """
-    if log_fn is None:
-        log_fn = print
-
-    # Make sure we always end the line with a newline
-    if not line.endswith("\n"):
-        line += "\n"
-
-    for attempt in range(1, max_retries + 1):
-        sftp = None
-        try:
-            sftp = ssh.open_sftp()
-
-            # ---- 1. Prüfen / Anlegen der Datei  ----
-            try:
-                sftp.stat(file_path)
-            except FileNotFoundError:  # file does not exist
-                log_fn(f"[SFTP] Datei {file_path} nicht vorhanden – erstelle sie.")
-                with sftp.file(file_path, "w", -1):
-                    pass  # create an empty file
-
-            # ---- 2. Zeile anhängen  ----
-            with sftp.file(file_path, "a", -1) as f:
-                f.write(line.encode(encoding))
-                log_fn(f"[SFTP APPEND] Zeile angehängt: {line.rstrip()}")
-
-            # ---- 3. Verifikation (lesen & prüfen) ----
-            with sftp.file(file_path, "r", -1) as f:
-                content = f.read().decode(encoding)
-
-            if line.rstrip() not in [l.strip() for l in content.splitlines()]:
-                raise RuntimeError(
-                    "Nach dem Append konnte die Zeile nicht im Zielfile gefunden werden."
-                )
-
-            # Alles in Ordnung – Rückgabe
-            log_fn(f"[SFTP] Erfolgreich: Zeile ist nun in {file_path} enthalten.")
-            return True
-
-        except Exception as exc:
-            # Falls wir hier sind, hat etwas schiefgegangen.
-            log_fn(
-                f"[SFTP] Versuch {attempt}/{max_retries} fehlgeschlagen: {exc!s}"
-            )
-            if attempt == max_retries:
-                # Nach max. Versuchen wirklich abbrechen
-                raise RuntimeError(
-                    f"SFTP append failed after {max_retries} attempts: {exc!s}"
-                ) from exc
-            # Optionaler Delay zwischen den Versuchen
-            time.sleep(retry_delay)
-
-        finally:
-            # SFTP-Verbindung immer sauber schließen
-            if sftp is not None:
-                try:
-                    sftp.close()
-                except Exception:
-                    pass  # nichts weiter zu tun
-
-    # Der Code sollte hier nie ankommen – aber type‑checkers brauchen es.
-    return False
-'''
 
 # ----------------------------------------------------------------------
 # Anpassung Config eines Containers
@@ -901,60 +666,7 @@ def _file_exists(ssh, path: str, timeout: int = 60, interval: float = 1.0) -> bo
 
 
 
-# ----------------------------------------------------------------------
-#  Base32 encoder for a raw 32‑byte x25519 key (obsolet)
-# ----------------------------------------------------------------------
-'''
-def _base32_x25519_key(key_hex: str) -> str:
-    """
-    Convert a hex string (64 chars → 32 bytes) into the 56‑char base32
-    representation that Tor expects.  Padding (`=`) is stripped.
-    """
-    raw = bytes.fromhex(key_hex)
-    if len(raw) != 32:
-        raise ValueError("Public key must be 32 bytes (64 hex chars)")
-    return base64.b32encode(raw).decode("ascii").rstrip("=")
-'''
 
-# ----------------------------------------------------------------------
-#  Write a client‑auth file (obsolet)
-# ----------------------------------------------------------------------
-'''
-def _write_client_auth_file(
-    ssh, hidden_dir: str, public_key_hex: str, auth_file_name: Optional[str] = None
-) -> str:
-    """
-    Create `<HiddenServiceDir>/authorized_clients/<file>.auth`
-    and return the full path that was written.
-
-    Parameters
-    ----------
-    ssh: paramiko.SSHClient
-        The SSH connection to the remote host.
-    hidden_dir: str
-        The path to the hidden‑service directory (e.g. `/home/.../.tor_hidden_myservice`).
-    public_key_hex: str
-        The x25519 public key in hex (64 chars).
-    auth_file_name: Optional[str]
-        Optional explicit file name.  If omitted a random one is chosen.
-    """
-    client_auth_dir = os.path.join(hidden_dir, "authorized_clients")
-    _run_cmd(ssh, f"mkdir -p {client_auth_dir} && chmod 700 {client_auth_dir}")
-
-    if not auth_file_name:
-        # deterministic but random‑ish name (SHA‑256 of the key)
-        auth_file_name = f"{hashlib.sha256(public_key_hex.encode()).hexdigest()}.auth"
-
-    file_path = os.path.join(client_auth_dir, auth_file_name)
-    content = f"descriptor:x25519:{_base32_x25519_key(public_key_hex)}\n"
-
-    # Use SFTP for writing the file
-    with ssh.open_sftp() as sftp:
-        with sftp.open(file_path, "w") as fp:
-            fp.write(content)
-
-    return file_path
-'''
 
 def _gen_x25519_keypair() -> tuple[bytes, bytes]:
     """
@@ -1349,10 +1061,6 @@ def update_remote_loads(self):
 
     for host in RemoteHost.objects.all():
         try:
-            # Methode: uptime
-            #with _ssh_client(host) as ssh:
-            #    _, out, _ = _run_cmd(ssh, 'uptime')
-            #load = _parse_loadavg(out)
             '''
             Falls `uptime` nicht verfügbar ist (z.B. auf minimalistischen Docker‑Hosts), kann man stattdessen `cat /proc/loadavg` ausführen:            
             out = _run_ssh_command(host, 'cat /proc/loadavg')

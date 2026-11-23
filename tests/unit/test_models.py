@@ -438,8 +438,8 @@ class SSHConfigLookupTests(TestCase):
 
 class SSHClientTests(TestCase):
 
-    @patch("paas.models._ssh_config_lookup")
-    @patch("paas.models.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
     def test_connect_success(
         self,
         mock_ssh_client,
@@ -456,6 +456,7 @@ class SSHClientTests(TestCase):
         host = Mock()
         host.hostname = "server.example.com"
         host.ssh_user = "root"
+        host.ssh_auth_method = "ssh_config"
 
         with _ssh_client(host) as ssh:
             self.assertIs(ssh, client)
@@ -471,8 +472,8 @@ class SSHClientTests(TestCase):
 
         client.close.assert_called_once()
 
-    @patch("paas.models._ssh_config_lookup")
-    @patch("paas.models.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
     def test_database_user_fallback(
         self,
         mock_ssh_client,
@@ -484,6 +485,7 @@ class SSHClientTests(TestCase):
         host = Mock()
         host.hostname = "server.example.com"
         host.ssh_user = "root"
+        host.ssh_auth_method = "ssh_config"
 
         with _ssh_client(host):
             pass
@@ -502,8 +504,8 @@ class SSHClientTests(TestCase):
             kwargs["key_filename"],
         )
 
-    @patch("paas.models._ssh_config_lookup")
-    @patch("paas.models.paramiko.SSHClient")
+    @patch("paas.ssh_provider.ssh_config_lookup")
+    @patch("paas.ssh_provider.paramiko.SSHClient")
     def test_client_closes_after_connection_error(
         self,
         mock_ssh_client,
@@ -521,6 +523,7 @@ class SSHClientTests(TestCase):
         host = Mock()
         host.hostname = "server.example.com"
         host.ssh_user = "root"
+        host.ssh_auth_method = "ssh_config"
 
         with self.assertRaises(Exception):
             with _ssh_client(host):
@@ -593,15 +596,47 @@ class ProvisionedAppBasicTests(ProvisionedAppBaseTestCase):
 
 class DockerClientTests(ProvisionedAppBaseTestCase):
 
+    @patch("paas.models.PrivyCloudSSHAdapter")
+    @patch("paas.models._ssh_client")
     @patch("paas.models.docker.DockerClient")
-    def test_success(self, mock_docker):
+    def test_success(
+            self,
+            mock_docker,
+            mock_ssh_context,
+            mock_adapter,
+    ):
+        # SSH-Context-Manager simulieren
+        ssh_client = Mock()
+        ssh_context = mock_ssh_context.return_value
+        ssh_context.__enter__.return_value = ssh_client
+
         result = self.provisioned._docker_client()
 
+        # Docker-Client wird zurückgegeben
         self.assertIs(result, mock_docker.return_value)
 
+        # Zentralen SSH-Provider verwenden
+        mock_ssh_context.assert_called_once_with(self.host)
+
+        # Docker-Client mit lokaler Dummy-Adresse
         mock_docker.assert_called_once_with(
+            base_url="tcp://localhost:2375",
+            version="1.44",
+            timeout=60,
+        )
+
+        # Adapter erhält den bestehenden SSH-Transport
+        mock_adapter.assert_called_once_with(
             base_url="ssh://root@server.example.com",
-            use_ssh_client=True,
+            ssh_client=ssh_client,
+            ssh_context=ssh_context,
+            timeout=60,
+        )
+
+        # Adapter wird im Docker-Client eingebunden
+        result.api.mount.assert_called_once_with(
+            "http://localhost:2375",
+            mock_adapter.return_value,
         )
 
     @patch("paas.models.docker.DockerClient")
