@@ -1131,10 +1131,29 @@ def update_app_task(self, provision_id: int, new_image: str):
         )
 
         # 2. Neuen Docker-Run-Befehl erzeugen
-        docker_run_cmd_new = re.sub(
-            r"\S+$",
-            lambda _: new_image,
-            provision.docker_run_cmd,
+
+        old_image = provision.image
+
+        if not old_image:
+            raise RuntimeError(
+                "Kein bisheriges Docker-Image in der Provision gespeichert."
+            )
+
+        if not provision.docker_run_cmd:
+            raise RuntimeError(
+                "Kein gespeicherter Docker-Run-Befehl vorhanden."
+            )
+
+        if old_image not in provision.docker_run_cmd:
+            raise RuntimeError(
+                f"Das bisherige Image '{old_image}' "
+                "wurde im Docker-Run-Befehl nicht gefunden."
+            )
+
+        docker_run_cmd_new = provision.docker_run_cmd.replace(
+            old_image,
+            new_image,
+            1,
         )
 
         logger.debug(f"Neuer Docker-Run-Cmd: {docker_run_cmd_new}")

@@ -208,6 +208,7 @@ class UpdateAppTaskTests(TestCase):
             "-e TEST=123 "
             "registry.example.com/my-app:1.0"
         )
+        self.provision.image = "registry.example.com/my-app:1.0"
         self.provision.save()
 
         ssh = MagicMock()
